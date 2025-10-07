@@ -6,6 +6,8 @@ This is a small game about managing grid congestion, written in Vue/TypeScript a
 
 While trying to stay true to real-world concepts, the models and solver take shortcuts and make simplifications, and the results accuracy is not guaranteed.
 
+<img src="./github/images/demo.png" width="500"/>
+
 ## Project structure
 
 ### src/models
