@@ -12,6 +12,7 @@ export default defineConfig({
     vueDevTools(),
     tailwindcss()
   ],
+  base: '/grid-congestion-game/',
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url))
