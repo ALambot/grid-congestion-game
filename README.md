@@ -25,3 +25,7 @@ Contains UI components
 1. Install [Node.js](https://nodejs.org/en/download)
 2. `npm install`
 3. `npm run dev`
+
+## License
+This project is currently unlicensed.  
+You may view the source code, but copying, modifying, or redistributing it is not permitted without explicit permission.
