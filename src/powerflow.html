@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HV Grid – DC Load Flow</title>
+  <style>
+    :root { --bg:#0f172a; --card:#111827; --muted:#e5e7eb; --ok:#10b981; --warn:#f59e0b; --bad:#ef4444; }
+    body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica Neue, Arial, "Apple Color Emoji", "Segoe UI Emoji"; background: var(--bg); color: white; margin: 0; }
+    .container { max-width: 1100px; margin: 24px auto; padding: 0 16px; }
+    h1 { font-weight: 700; letter-spacing: .2px; margin: 8px 0 16px; }
+    .row { display: grid; grid-template-columns: 1fr; gap: 16px; }
+    @media (min-width: 900px) { .row { grid-template-columns: 1fr 1fr; } }
+    .card { background: var(--card); border-radius: 16px; padding: 16px; box-shadow: 0 10px 25px rgba(0,0,0,.35); }
+    .subtle { color: var(--muted); font-size: 14px; }
+    pre, textarea { background: #0b1020; color: #e5e7eb; border: 1px solid #24324f; border-radius: 12px; padding: 12px; width: 100%; box-sizing: border-box; }
+    textarea { min-height: 180px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; resize: vertical; }
+    button { background: #2563eb; color: white; border: none; padding: 10px 16px; border-radius: 999px; font-weight: 600; cursor: pointer; }
+    button:disabled { opacity: .6; cursor: not-allowed; }
+    .grid { width: 100%; border-collapse: collapse; font-size: 14px; }
+    .grid th, .grid td { border-bottom: 1px solid #24324f; padding: 8px 10px; text-align: left; }
+    .tag { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+    .ok { background: rgba(16,185,129,.15); color: var(--ok); }
+    .warn { background: rgba(245,158,11,.15); color: var(--warn); }
+    .bad { background: rgba(239,68,68,.15); color: var(--bad); }
+    .flex { display:flex; gap:10px; align-items:center; flex-wrap: wrap; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>High‑Voltage Grid Simulation (DC Load Flow)</h1>
+    <p class="subtle">Uses a per‑unit model. Enter node injections in <b>MW</b>, line reactances in <b>p.u.</b> on the chosen base, and limits in <b>MW</b>. The solver will convert to p.u., compute angles, and report flows in MW.</p>
+
+    <div class="card" style="margin-bottom:16px;">
+      <div class="flex">
+        <div>
+          <label class="subtle">System base power (S<sub>base</sub>)</label><br />
+          <input id="sbase" type="number" value="100" min="1" step="1" style="width:140px; padding:8px; border-radius:10px; border:1px solid #24324f; background:#0b1020; color:#e5e7eb;" />
+          <span class="subtle">MVA</span>
+        </div>
+        <div>
+          <label class="subtle">Slack bus index</label><br />
+          <input id="slack" type="number" value="0" min="0" step="1" style="width:120px; padding:8px; border-radius:10px; border:1px solid #24324f; background:#0b1020; color:#e5e7eb;" />
+        </div>
+        <div style="margin-left:auto;">
+          <button id="runBtn" onclick="runSimulation()">Run Simulation</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="card">
+        <h3>Inputs</h3>
+        <p class="subtle">Edit JSON below and click <b>Run Simulation</b>.</p>
+        <label class="subtle">Nodes (array of MW injections; +gen, −load)</label>
+        <textarea id="nodesInput">[100, 0, 0, -100, 0, 0]</textarea>
+        <label class="subtle">Lines (from, to, x <em>in p.u.</em> on S<sub>base</sub>, limit MW)</label>
+        <textarea id="linesInput">[
+    { "from": 0, "to": 1, "x": 0.10, "limit": 100, "phase_deg": 1 },  
+    { "from": 1, "to": 2, "x": 0.10, "limit": 100 },
+    { "from": 2, "to": 3, "x": 0.10, "limit": 100 },
+    { "from": 3, "to": 4, "x": 0.10, "limit": 100 },
+    { "from": 4, "to": 5, "x": 0.10, "limit": 100 },
+    { "from": 5, "to": 0, "x": 0.10, "limit": 100 }
+]</textarea>
+      </div>
+
+      <div class="card">
+        <h3>Diagnostics</h3>
+        <table class="grid" id="diagTable"></table>
+        <div id="messages" class="subtle" style="margin-top:8px;"></div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:16px;">
+      <h3>Results</h3>
+      <h4>Bus Angles</h4>
+      <table class="grid" id="anglesTable"></table>
+      <h4 style="margin-top:16px;">Line Flows</h4>
+      <table class="grid" id="flowsTable"></table>
+    </div>
+  </div>
+
+  <script>
+    function runSimulation() {
+      clearUI();
+      const sBase = Number(document.getElementById('sbase').value || 100); // MVA
+      const slackIndex = Number(document.getElementById('slack').value || 0);
+
+      let nodesMW, lines;
+      try {
+        nodesMW = JSON.parse(document.getElementById('nodesInput').value);
+        lines = JSON.parse(document.getElementById('linesInput').value);
+        if (!Array.isArray(nodesMW) || !Array.isArray(lines)) throw new Error('Inputs must be arrays');
+      } catch (e) {
+        pushMsg('Invalid JSON in inputs: ' + e.message, 'bad');
+        return;
+      }
+
+      // Auto-balance slack: enforce sum(P) = 0 by adjusting slack injection
+      const sumNonSlack = nodesMW.reduce((acc, p, i) => i === slackIndex ? acc : acc + p, 0);
+      const slackInjection = -sumNonSlack; // MW
+      const nodesMWBalanced = nodesMW.slice();
+      if (nodesMWBalanced[slackIndex] !== undefined) nodesMWBalanced[slackIndex] = slackInjection;
+      else { pushMsg('Slack index out of range', 'bad'); return; }
+
+      // Convert to per-unit on S_base
+      const Ppu = nodesMWBalanced.map(p => p / sBase);
+
+      // Build B matrix from p.u. reactances
+      const n = Ppu.length;
+      let s = Array(n).fill(0); // constant term from PSTs (p.u. radians * b)
+
+      let B = Array.from({ length: n }, () => Array(n).fill(0));
+      for (const line of lines) {
+        const { from, to, x } = line;
+        if (x <= 0) { pushMsg(`Line (${from}-${to}) has non-positive reactance`, 'bad'); return; }
+        const b = 1 / x; // p.u.
+        B[from][to] -= b; B[to][from] -= b;
+        B[from][from] += b; B[to][to] += b;
+
+         // handle optional phase shift: accept phase_deg or phase (radians)
+        let phi = 0;
+        if (line.phase !== undefined) phi = Number(line.phase);           // assume radians
+        else if (line.phase_deg !== undefined) phi = Number(line.phase_deg) * Math.PI / 180;
+
+        // contribution to s: (we used flow = (θ_from - θ_to - φ) / X)
+        // Expand b*(θ_from - θ_to - φ) so the -b*phi is a constant in node eq.
+        // Summing into s so B*θ = P + s  => s[from] -= b*phi; s[to] += b*phi
+        if (phi !== 0) {
+            s[from] += b * phi;
+            s[to]   -= b * phi;
+        }
+      }
+
+      // Reduce system (remove slack row/col)
+      const mask = [...Array(n).keys()].filter(i => i !== slackIndex);
+      const Bred = mask.map(i => mask.map(j => B[i][j]));
+      // RHS includes Ppu + s (both in p.u.)
+      const Pred = mask.map(i => Ppu[i] + s[i]);
+
+      // Solve Bred * thetaRed = Pred
+      let thetaRed;
+      try { thetaRed = solveLinearSystem(Bred, Pred); }
+      catch (e) { pushMsg('Solver error: ' + e.message, 'bad'); return; }
+
+      // Reconstruct full angle vector (radians). Slack angle = 0 by definition.
+      const theta = Array(n).fill(0);
+      for (let k = 0; k < mask.length; k++) theta[mask[k]] = thetaRed[k];
+
+      // Compute flows in p.u. and MW, and overload flags vs MW limits
+      const flows = [];
+      for (const line of lines) {
+        const phi = line.phase !== undefined ? Number(line.phase) :
+                    (line.phase_deg !== undefined ? Number(line.phase_deg) * Math.PI / 180 : 0);
+        const dth = theta[line.from] - theta[line.to];
+        const Fpu = (dth - phi) / line.x;   // IMPORTANT: subtract phi
+        const Fmw = Fpu * sBase;
+        flows.push({ ...line, dTheta: dth, phi, flow_pu: Fpu, flow_MW: Fmw, overloaded: Math.abs(Fmw) > line.limit });
+      }
+
+      // Diagnostics
+      const sumMW = nodesMWBalanced.reduce((a,b) => a + b, 0);
+      const maxAbsTheta = Math.max(...theta.map(Math.abs));
+      const maxAbsDtheta = flows.length ? Math.max(...flows.map(f => Math.abs(f.dTheta))) : 0;
+
+      // Angle sanity: DC model typically has |θ| ~ a few degrees (say < ~0.3 rad) and |Δθ| across a line often < ~0.2 rad in normal ops
+      const angleTag = maxAbsTheta < 0.5 ? 'ok' : (maxAbsTheta < 1.5 ? 'warn' : 'bad');
+      const dAngleTag = maxAbsDtheta < 0.3 ? 'ok' : (maxAbsDtheta < 1.0 ? 'warn' : 'bad');
+
+      // Render tables
+      renderDiagnostics({ sBase, slackIndex, slackInjection, powerBalanceMW: sumMW, maxAbsTheta, maxAbsDtheta, n }, angleTag, dAngleTag);
+      renderAngles(theta);
+      renderFlows(flows);
+
+      // Helpful hints
+      if (angleTag !== 'ok') {
+        pushMsg('Angles look large. Common causes: (1) Using MW without converting to per‑unit, (2) Reactances too small, (3) Islands/disconnected graph. This page now converts MW→p.u. automatically and compares flows vs MW limits.', angleTag);
+      }
+    }
+
+    // UI helpers
+    function clearUI(){
+      document.getElementById('diagTable').innerHTML = '';
+      document.getElementById('anglesTable').innerHTML = '';
+      document.getElementById('flowsTable').innerHTML = '';
+      document.getElementById('messages').innerHTML = '';
+    }
+    function pushMsg(msg, level='warn'){
+      const el = document.getElementById('messages');
+      const span = document.createElement('div');
+      span.className = 'tag ' + level;
+      span.style.marginTop = '6px';
+      span.textContent = msg;
+      el.appendChild(span);
+    }
+    function renderDiagnostics(d, angleTag, dAngleTag){
+      const t = document.getElementById('diagTable');
+      t.innerHTML = `
+        <tr><th>Parameter</th><th>Value</th></tr>
+        <tr><td>S<sub>base</sub></td><td>${d.sBase} MVA</td></tr>
+        <tr><td>Slack bus</td><td>${d.slackIndex}</td></tr>
+        <tr><td>Slack injection</td><td>${fmtMW(d.slackInjection)} MW</td></tr>
+        <tr><td>Power balance (ΣP)</td><td>${fmtMW(d.powerBalanceMW)} MW</td></tr>
+        <tr><td>Max |θ|</td><td><span class="tag ${angleTag}">${d.maxAbsTheta.toFixed(6)} rad (${rad2deg(d.maxAbsTheta).toFixed(3)}°)</span></td></tr>
+        <tr><td>Max |Δθ| on a line</td><td><span class="tag ${dAngleTag}">${d.maxAbsDtheta.toFixed(6)} rad (${rad2deg(d.maxAbsDtheta).toFixed(3)}°)</span></td></tr>
+        <tr><td># buses</td><td>${d.n}</td></tr>
+      `;
+    }
+    function renderAngles(theta){
+      const t = document.getElementById('anglesTable');
+      let html = '<tr><th>Bus</th><th>θ (rad)</th><th>θ (deg)</th></tr>';
+      theta.forEach((th, i) => { html += `<tr><td>${i}</td><td class="mono">${th.toFixed(8)}</td><td class="mono">${rad2deg(th).toFixed(5)}</td></tr>`; });
+      t.innerHTML = html;
+    }
+    function renderFlows(flows){
+      const t = document.getElementById('flowsTable');
+      let html = '<tr><th>From</th><th>To</th><th>Δθ (rad)</th><th>Flow (p.u.)</th><th>Flow (MW)</th><th>Limit (MW)</th><th>Status</th></tr>';
+      for (const f of flows) {
+        const status = Math.abs(f.flow_MW) > f.limit ? '<span class="tag bad">OVERLOADED</span>' : '<span class="tag ok">OK</span>';
+        html += `<tr>
+          <td>${f.from}</td>
+          <td>${f.to}</td>
+          <td class="mono">${f.dTheta.toFixed(8)}</td>
+          <td class="mono">${f.flow_pu.toFixed(6)}</td>
+          <td class="mono">${fmtMW(f.flow_MW)}</td>
+          <td class="mono">${fmtMW(f.limit)}</td>
+          <td>${status}</td>
+        </tr>`;
+      }
+      t.innerHTML = html;
+    }
+
+    function solveLinearSystem(A, b) {
+      const n = A.length;
+      if (n === 0) return [];
+      // Copy to augmented matrix
+      const M = A.map((row, i) => row.concat([b[i]]));
+      for (let i = 0; i < n; i++) {
+        // Partial pivoting
+        let maxR = i;
+        for (let r = i + 1; r < n; r++) if (Math.abs(M[r][i]) > Math.abs(M[maxR][i])) maxR = r;
+        if (Math.abs(M[maxR][i]) < 1e-12) throw new Error('Singular matrix (islanded network or slack not connected)');
+        if (maxR !== i) [M[i], M[maxR]] = [M[maxR], M[i]];
+        // Normalize pivot row
+        const piv = M[i][i];
+        for (let j = i; j <= n; j++) M[i][j] /= piv;
+        // Eliminate other rows
+        for (let r = 0; r < n; r++) if (r !== i) {
+          const f = M[r][i];
+          if (f !== 0) for (let j = i; j <= n; j++) M[r][j] -= f * M[i][j];
+        }
+      }
+      // Read solution
+      return M.map(row => row[n]);
+    }
+
+    // Utils
+    function rad2deg(x){ return x * 180 / Math.PI; }
+    function fmtMW(x){ return (Math.abs(x) < 1e-6 ? 0 : x).toFixed(3); }
+  </script>
+</body>
+</html>
