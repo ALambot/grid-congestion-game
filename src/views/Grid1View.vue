@@ -21,6 +21,7 @@ function run(){
     simulationResult.value = runSimulation(level.gridConfig)
 }
 
+const uiScale: Ref<number> = ref(1)
 
 </script>
 
@@ -29,15 +30,19 @@ function run(){
 <div class="size-full flex flex-row gap-4">
 
     <div class="h-full w-[50%] bg-white border p-4 flex flex-col gap-1">
+        <span>Grid config</span>
         <pre>{{ level.gridConfig }}</pre>
         <button class="bg-blue-700 text-white rounded cursor-pointer" @click="run()">Run simulation</button>
+        <span>Results</span>
         <pre>{{ simulationResult }}</pre>
     </div>
 
     <div class="size-[800px]">
 
         <MapContainer
+        v-model:scale="uiScale"
             :min-scale="1"
+            :max-scale="5"
         >
             <div class="size-[800px] bg-green-50">
 
@@ -48,6 +53,7 @@ function run(){
                     :y="node.y"
                     kind="generator"
                     :power="node.generation"
+                    :ui-scale="uiScale"
                 />
 
                 <MapNode
@@ -57,6 +63,7 @@ function run(){
                     :y="node.y"
                     kind="load"
                     :power="-node.load"
+                    :ui-scale="uiScale"
                 />
 
                 <MapNode
@@ -65,6 +72,7 @@ function run(){
                     :x="node.x"
                     :y="node.y"
                     kind="substation"
+                    :ui-scale="uiScale"
                 />
 
                 <MapLine
@@ -77,6 +85,7 @@ function run(){
                     :capacity="line.limit"
                     :flow="simulationResult?.[line.key].flow_MW"
                     :reactance="line.reactance"
+                    :ui-scale="uiScale"
                 />
 
             </div>

@@ -11,7 +11,8 @@ export interface MapLineProps {
     endY: number,
     flow?: number,
     capacity?: number,
-    reactance: number
+    reactance: number,
+    uiScale: number
 }
 
 const {
@@ -22,7 +23,8 @@ const {
     endY,
     flow,
     capacity,
-    reactance
+    reactance,
+    uiScale
 } = defineProps<MapLineProps>()
 
 const minX = Math.min(startX, endX)
@@ -75,7 +77,7 @@ const reverse: Ref<boolean> = computed(() => {
 })
 
 const size: Ref<number> = computed(() => {
-    return 6 + 2* Math.floor((capacity??100)/20)
+    return (6 + 2* Math.floor((capacity??100)/20)) / uiScale
 })
 
 const overloaded: Ref<boolean> = computed(() => {
@@ -113,13 +115,15 @@ const absLoadingShort: Ref<string|undefined> = computed(() => flow !== undefined
             '--light': hsl.l,
 
             '--speed': speed,
-            '--linesize': size
+            '--linesize': size,
+
+            '--ui-scale': uiScale
         }"
     >
         <div class="map-line-visual" :class="{'forward': forward, 'reverse': reverse, 'overloaded': overloaded}">
             
             <div class="line-tooltip items-center justify-center">
-                <div class="line-tooltip-content bg-white py-1.5 px-2 border flex flex-col text-sm ui-shadow">
+                <div class="line-tooltip-content bg-white py-1.5 px-2 border flex flex-col text-md ui-shadow">
                     <div class="text-nowrap">HV AC - <span class="font-mono bg-stone-100">{{ lineKey }}</span></div>
                     <div v-if="overloaded" class="text-red-700 font-bold">Overloaded !</div>
                     <div class="text-nowrap">Flow: <span class="font-bold">{{ absFlow ?? '-' }}</span> /{{ capacity }} MW</div>
@@ -129,7 +133,7 @@ const absLoadingShort: Ref<string|undefined> = computed(() => flow !== undefined
             </div>
 
             <div v-if="absLoadingShort" class="line-loading items-center justify-center h-full">
-                <div class="bg-white py-0.5 px-1 border text-sm rounded-full ui-shadow">
+                <div class="bg-white py-0.5 px-1 border text-md rounded-full ui-shadow">
                     <div class="text-nowrap"><span class="font-bold">{{ absLoadingShort ?? '-' }}</span> %</div>
                 </div>
             </div>
@@ -165,7 +169,7 @@ const absLoadingShort: Ref<string|undefined> = computed(() => flow !== undefined
     --line-color: hsl(var(--hue), calc(var(--saturation)*1%), calc(var(--light)*1%));
     --arrow-color: white;
     --arrow-color-inverse: black;
-    border: 1px solid black;
+    /*border: 1px solid black;*/
 
     z-index: 116;
 
@@ -181,13 +185,15 @@ const absLoadingShort: Ref<string|undefined> = computed(() => flow !== undefined
 
     cursor: pointer;
 
-    box-shadow: 0px 0px 3px grey;
+    box-shadow: 0px 0px 0px calc(1px/var(--ui-scale)) black;
+
+    transition: height .25s;
 
     /** clip-path: polygon(0% 0%, 100% 0%, 100% 100%, 51% 100%, 51% 0%, 49% 0%, 49% 100%, 0% 100%); */
 }
 
 .map-line-visual.overloaded {
-    box-shadow: 0px 0px 20px red;
+    box-shadow: 0px 0px calc(20px/var(--ui-scale)) red;
 }
 
 @keyframes FlowAnimForward {
@@ -215,16 +221,18 @@ const absLoadingShort: Ref<string|undefined> = computed(() => flow !== undefined
 .map-line-visual:hover {
     --line-color: hsl(var(--hue), 100%, 50%);
     --arrow-color: black;
-    border: 2px solid black;
+    box-shadow: 0px 0px 0px calc(2px/var(--ui-scale)) black;
 }
 
 .line-tooltip {
     position: relative;
     display: none;
-    transform-origin: 50% 0%;
-    transform: rotate(calc(var(--angle-deg)*-1deg)) translateY(-50%);
+    transform-origin: 50% 50%;
+    transform: translateY(calc(-50% + var(--linesize)*1px/2)) rotate(calc(var(--angle-deg)*-1deg)) scale(calc(1/var(--ui-scale))); /** The order is important */
     z-index: 2200;
     user-select: none;
+    pointer-events: none;
+    transition: all .25s;
 }
 
 .map-line-visual:hover .line-tooltip {
@@ -233,6 +241,7 @@ const absLoadingShort: Ref<string|undefined> = computed(() => flow !== undefined
 
 .line-tooltip-content {
     border-radius: 1rem;
+    pointer-events: all;
 }
 
 
@@ -240,10 +249,11 @@ const absLoadingShort: Ref<string|undefined> = computed(() => flow !== undefined
     position: relative;
     display: flex;
     transform-origin: 50% 50%;
-    transform: rotate(calc(var(--angle-deg)*-1deg));
+    transform: rotate(calc(var(--angle-deg)*-1deg)) scale(calc(1/var(--ui-scale)));
     z-index: 2200;
     user-select: none;
     pointer-events: none;
+    transition: all .25s;
 }
 
 .map-line-visual:hover .line-loading {

@@ -2,8 +2,6 @@
 import { onMounted, ref, type Ref } from 'vue'
 
 export interface MapContainerProps {
-    /** Used to render content */
-    startingScale?: number
     /** Zoom-out limit */
     minScale?: number
     /** Zoom-in limit */
@@ -13,19 +11,22 @@ export interface MapContainerProps {
 }
 
 const {
-    startingScale = 1,
     scaleFactor = 1.15,
     minScale = 0.5,
     maxScale = 2
 } = defineProps<MapContainerProps>()
 
+
 // Tracks scale
-const scale: Ref<number> = ref(startingScale)
+const scale: Ref<number> = defineModel<number>('scale', {default: 1})
 
 // Tracks drag state
 const isDragging: Ref<boolean> = ref(false)
 const dragStartX: Ref<number|undefined> = ref(undefined)
 const dragStartY: Ref<number|undefined> = ref(undefined)
+
+// Cached content dimensions
+// TODO to fix out-of-bounds issues while scrolling out too fast
 
 onMounted(() => {
     
@@ -85,15 +86,14 @@ onMounted(() => {
         const newOffsetX = event.clientX - containerRect.left - anchorX / oldScale * newScale
         const newOffsetY = event.clientY - containerRect.top - anchorY / oldScale * newScale
 
-        scale.value = newScale
-
         const newOffsetXSafe = Math.min(0, Math.max(- contentRect.width / oldScale * newScale + containerRect.width, newOffsetX))
         const newOffsetYSafe = Math.min(0, Math.max(- contentRect.height / oldScale * newScale + containerRect.height, newOffsetY))
 
         mapContent.style.transition = "all .25s" // Smooth zoom
         mapContent.style.transformOrigin = `0% 0%`
-        mapContent.style.transform = `translate(${newOffsetXSafe}px, ${newOffsetYSafe}px) scale(${scale.value})`
+        mapContent.style.transform = `translate(${newOffsetXSafe}px, ${newOffsetYSafe}px) scale(${newScale})`
         
+        scale.value = newScale
     })
 
     mapContainer.addEventListener("mousedown", (event) => {
@@ -133,21 +133,18 @@ onMounted(() => {
     panToPercent(50,50)
 })
 
-
-
-
 </script>
 
 <template>
 
-        <div id="map-container" class="size-full overflow-hidden cursor-grab border rounded-2xl">
+    <div id="map-container" class="size-full overflow-hidden cursor-grab border rounded-2xl">
 
-            <div id="map-content" class="size-fit">
+        <div id="map-content" class="size-fit">
 
-                <slot></slot>
+            <slot></slot>
 
-            </div>
-        
         </div>
+    
+    </div>
     
 </template>

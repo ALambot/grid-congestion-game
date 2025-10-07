@@ -9,12 +9,14 @@ export interface MapNodeProps {
     nodeKey: string,
     name?: string,
     power?: number,
+    uiScale: number
 }
 
 const {
     x,
     y,
-    power=0
+    power=0,
+    uiScale
 } = defineProps<MapNodeProps>()
 
 const powerString: Ref<string> = computed(() => {
@@ -41,7 +43,8 @@ function capitalize(str: string) {
         class="absolute"
         :style="{
             '--x': x,
-            '--y': y
+            '--y': y,
+            '--ui-scale': uiScale
         }"
     >
         <div 
@@ -65,7 +68,7 @@ function capitalize(str: string) {
         </div>
 
         <div 
-            class="node-tooltip bg-white p-1.5 text-sm border absolute flex flex-col"
+            class="node-tooltip bg-white p-1.5 text-md border absolute flex flex-col"
             :class="{'left': x > 500}"
         >
             <div class="text-nowrap">{{ capitalize(kind) }} - <span class="font-mono bg-stone-100">{{nodeKey}}</span></div>
@@ -90,6 +93,8 @@ function capitalize(str: string) {
     height: 32px;
     margin-left: -16px;
     margin-top: -16px;
+    transform: scale(calc(1/var(--ui-scale)));
+    transition: transform .25s;
 }
 .node-border:hover {
     width: 34px;
@@ -138,9 +143,12 @@ function capitalize(str: string) {
     z-index: 1500;
     border-radius: 1rem 1rem 1rem 0;
     
-    bottom: 1.6rem;
-    left: 0.5rem;
+    bottom: calc(100% + 12px/var(--ui-scale));
+    left: calc(12px/var(--ui-scale));
     right: unset;
+
+    transform-origin: 0% 100%;
+    transform: scale(calc(1/var(--ui-scale)));
 }
 #map-node:hover .node-tooltip {
     display: block;
@@ -149,8 +157,9 @@ function capitalize(str: string) {
 .node-tooltip.left {
     border-radius: 1rem 1rem 0 1rem;
     
+    transform-origin: 100% 100%;
     left: unset;
-    right: 1.5rem;
+    right: calc(100% + 12px/var(--ui-scale));
 }
 
 </style>
