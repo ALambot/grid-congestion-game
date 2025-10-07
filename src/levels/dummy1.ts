@@ -30,7 +30,6 @@ const lines: RegularGridLineInput[] = [
     { key: "line7", nodeFromKey: "sub3", busFrom: 1, nodeToKey: "sub4", busTo: 1, reactance: 0.1, limit: 100 },
     { key: "line8", nodeFromKey: "sub4", busFrom: 1, nodeToKey: "load1", busTo: 0, reactance: 0.1, limit: 200 },
     { key: "line9", nodeFromKey: "sub4", busFrom: 1, nodeToKey: "load2", busTo: 0, reactance: 0.1, limit: 50 },
-
     { key: "line10", nodeFromKey: "sub3", busFrom: 1, nodeToKey: "gen3", busTo: 0, reactance: 0.1, limit: 20 },
     { key: "line11", nodeFromKey: "sub3", busFrom: 1, nodeToKey: "load3", busTo: 0, reactance: 0.1, limit: 20 },
 ]

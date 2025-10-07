@@ -1,6 +1,7 @@
 import { prepareGrid } from "./preparation";
 import type { InputGridConfig, GridLineWithResult, SolverGridNode, SolverGridConfig } from "./types"
 
+/** Semi vibe-coded, especially the maths */
 export function runSimulation(inputGridConfig: InputGridConfig): { [key: string]: GridLineWithResult } | undefined {
 
     const sBase = 100 // MVA

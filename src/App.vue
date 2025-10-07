@@ -10,6 +10,7 @@
 
 <style scoped>
 
+/* https://css-pattern.com/ */
 #bg-main {
   --s: 70px; /* control the size*/
   
