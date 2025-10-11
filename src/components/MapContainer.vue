@@ -25,8 +25,18 @@ const isDragging: Ref<boolean> = ref(false)
 const dragStartX: Ref<number|undefined> = ref(undefined)
 const dragStartY: Ref<number|undefined> = ref(undefined)
 
-// Cached content dimensions
-// TODO to fix out-of-bounds issues while scrolling out too fast
+// Zoom - we have a 250ms animation for smooth zooming
+// The scale is updated instantly, but the contentRect will be desync while this animation plays
+// If another zoom event happens during a playing animation, anchor and limit computations will be incorrect
+// So instead we push the expected contentRect properties
+let lastZoom: number = 0
+let cachedContentRect: {
+    offsetX: number // + containerRect.left to get the expected contentRect.left
+    offsetY: number // + containerRect.top to get the expected contentRect.top
+    width: number
+    height: number
+}|undefined = undefined
+let handlingZoom: boolean = false // Debounce lock for the event handler
 
 onMounted(() => {
     
@@ -56,8 +66,16 @@ onMounted(() => {
     // Zoom on mouse wheel
     mapContainer?.addEventListener("wheel", (event) => {
 
-        if (!mapContainer) return
-        if (!mapContent) return
+        if (handlingZoom) { 
+            console.warn("Already handling zoom event, debouncing"); 
+            return 
+        }
+        handlingZoom = true
+
+        if (!mapContainer || !mapContent) {
+            handlingZoom = false
+            return
+        }
 
         event.preventDefault()
 
@@ -67,14 +85,30 @@ onMounted(() => {
         const oldScale = scale.value
         const newScale = Math.min(Math.max(oldScale * delta, minScale), maxScale)
 
-        if (oldScale === newScale) return
+        if (oldScale === newScale) {
+            handlingZoom = false
+            return
+        }
         
         const containerRect = mapContainer.getBoundingClientRect()
         const contentRect = mapContent.getBoundingClientRect()
+
+        let contentRectLeft = contentRect.left
+        let contentRectTop = contentRect.top
+        let contentRectWidth = contentRect.width
+        let contentRectHeight = contentRect.height
+
+        // We cannot rely on contentRect if we're mid zoom animation
+        if (performance.now() - lastZoom < 250 && cachedContentRect) {
+            contentRectLeft = cachedContentRect?.offsetX + containerRect.left
+            contentRectTop = cachedContentRect?.offsetY + containerRect.top
+            contentRectWidth = cachedContentRect.width
+            contentRectHeight = cachedContentRect.height
+        }
         
         // Determine zoom anchor
-        const anchorX = (event.clientX - contentRect.left)
-        const anchorY = (event.clientY - contentRect.top)
+        const anchorX = (event.clientX - contentRectLeft)
+        const anchorY = (event.clientY - contentRectTop)
 
         // Formulas, new/old + Offset/Anchor/Scale
         // Anchor is where the mouse is content-wise, we want this point to stay under the mouse
@@ -86,14 +120,25 @@ onMounted(() => {
         const newOffsetX = event.clientX - containerRect.left - anchorX / oldScale * newScale
         const newOffsetY = event.clientY - containerRect.top - anchorY / oldScale * newScale
 
-        const newOffsetXSafe = Math.min(0, Math.max(- contentRect.width / oldScale * newScale + containerRect.width, newOffsetX))
-        const newOffsetYSafe = Math.min(0, Math.max(- contentRect.height / oldScale * newScale + containerRect.height, newOffsetY))
+        const newOffsetXSafe = Math.min(0, Math.max(- contentRectWidth / oldScale * newScale + containerRect.width, newOffsetX))
+        const newOffsetYSafe = Math.min(0, Math.max(- contentRectHeight / oldScale * newScale + containerRect.height, newOffsetY))
 
         mapContent.style.transition = "all .25s" // Smooth zoom
         mapContent.style.transformOrigin = `0% 0%`
         mapContent.style.transform = `translate(${newOffsetXSafe}px, ${newOffsetYSafe}px) scale(${newScale})`
         
         scale.value = newScale
+
+        // Expected pooosition at the end of zoom anim
+        lastZoom = performance.now()
+        cachedContentRect = {
+            offsetX: newOffsetXSafe,
+            offsetY: newOffsetYSafe,
+            width: contentRect.width / oldScale * newScale,
+            height: contentRect.height / oldScale * newScale
+        }
+
+        handlingZoom = false
     })
 
     mapContainer.addEventListener("mousedown", (event) => {
@@ -137,7 +182,7 @@ onMounted(() => {
 
 <template>
 
-    <div id="map-container" class="size-full overflow-hidden cursor-grab border rounded-2xl">
+    <div id="map-container" class="size-full overflow-hidden cursor-grab">
 
         <div id="map-content" class="size-fit">
 

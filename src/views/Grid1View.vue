@@ -37,7 +37,7 @@ const uiScale: Ref<number> = ref(1)
         <pre>{{ simulationResult }}</pre>
     </div>
 
-    <div class="size-[800px]">
+    <div class="size-[800px] outline rounded-2xl overflow-hidden">
 
         <MapContainer
         v-model:scale="uiScale"
