@@ -4,7 +4,7 @@ import MapLine from '@/components/map/MapLine.vue'
 import MapContainer from '@/components/MapContainer.vue'
 import type { BaseGridNodeInput, GridLineWithResult } from '@/models/types'
 import { runSimulation } from '@/models/solver'
-import { ref, type Ref } from 'vue'
+import { computed, ref, type Ref } from 'vue'
 
 import dummyLevel from '@/levels/dummy1'
 import type { Level } from '@/levels/types'
@@ -17,6 +17,13 @@ allNodes.forEach((node) => {nodeLookup[node.key] = node})
 
 const simulationResult: Ref<{[key: string]: GridLineWithResult}|undefined> = ref(undefined)
 
+const maxLoading: Ref<number|undefined> = computed(() => {
+    if (!simulationResult.value) return undefined
+    return Math.max( ...(Object.values(simulationResult.value).map((lr: GridLineWithResult) => {
+        return Math.round(Math.abs(lr.flow_MW)/lr.limit * 100)
+    })))
+})
+
 function run(){
     simulationResult.value = runSimulation(level.gridConfig)
 }
@@ -27,23 +34,27 @@ const uiScale: Ref<number> = ref(1)
 
 <template>
 
-<div class="size-full flex flex-row gap-4">
-
-    <div class="h-full w-[50%] bg-white border p-4 flex flex-col gap-1">
-        <span>Grid config</span>
-        <pre>{{ level.gridConfig }}</pre>
-        <button class="bg-blue-700 text-white rounded cursor-pointer" @click="run()">Run simulation</button>
-        <span>Results</span>
-        <pre>{{ simulationResult }}</pre>
-    </div>
+<div class="size-full flex flex-row items-start justify-center gap-5">
 
     <div class="size-[800px] outline rounded-2xl overflow-hidden">
 
         <MapContainer
-        v-model:scale="uiScale"
+            v-model:scale="uiScale"
             :min-scale="1"
             :max-scale="5"
         >
+
+            <template #overlay>
+                <div class="size-full p-2 flex flex-col-reverse">
+                    <div class="flex flex-col w-fit justify-start p-2 border bg-white rounded-xl pointer-events-auto">
+                        
+                        <button class="bg-blue-700 text-white py-1 px-2 rounded cursor-pointer" @click="run()">Run simulation</button>
+                        <span v-if="simulationResult">Max loading: <span class="font-bold">{{ maxLoading }}</span> %</span>
+
+                    </div>
+                </div>
+            </template>
+
             <div class="size-[800px] bg-green-50">
 
                 <MapNode
@@ -54,6 +65,7 @@ const uiScale: Ref<number> = ref(1)
                     kind="generator"
                     :power="node.generation"
                     :ui-scale="uiScale"
+                    :asterisk="node.allowRedispatch"
                 />
 
                 <MapNode
@@ -64,6 +76,7 @@ const uiScale: Ref<number> = ref(1)
                     kind="load"
                     :power="-node.load"
                     :ui-scale="uiScale"
+                    :asterisk="node.allowRedispatch"
                 />
 
                 <MapNode
@@ -91,6 +104,11 @@ const uiScale: Ref<number> = ref(1)
             </div>
         
         </MapContainer>
+
+    </div>
+
+    <div class="h-full bg-white outline w-[30%] rounded-2xl p-4">
+        Actions
 
     </div>
 

@@ -182,14 +182,23 @@ onMounted(() => {
 
 <template>
 
-    <div id="map-container" class="size-full overflow-hidden cursor-grab">
+    <div class="size-full relative pointer-events-none">
+        
+        <div id="map-container" class="size-full overflow-hidden cursor-grab absolute pointer-events-auto">
 
-        <div id="map-content" class="size-fit">
+            <div id="map-content" class="size-fit">
 
-            <slot></slot>
+                <slot></slot>
 
+            </div>
+        
         </div>
-    
+
+        <div id="map-overlay" class="size-full pointer-events-none absolute">
+            <slot name="overlay"></slot>
+        </div>
     </div>
+
+   
     
 </template>

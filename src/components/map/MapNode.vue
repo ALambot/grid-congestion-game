@@ -9,7 +9,8 @@ export interface MapNodeProps {
     nodeKey: string,
     name?: string,
     power?: number,
-    uiScale: number
+    uiScale: number,
+    asterisk?: boolean
 }
 
 const {
@@ -73,6 +74,10 @@ function capitalize(str: string) {
         >
             <div class="text-nowrap">{{ capitalize(kind) }} - <span class="font-mono bg-stone-100">{{nodeKey}}</span></div>
             <div v-if="powerString" class="text-nowrap">{{ powerModeString }}: <span class="font-bold">{{ powerString }}</span> MW</div>
+        </div>
+
+        <div v-if="asterisk" class="absolute asterisk text-3xl">
+            *
         </div>
         
     </div>
@@ -162,4 +167,13 @@ function capitalize(str: string) {
     right: calc(100% + 12px/var(--ui-scale));
 }
 
+.asterisk {
+    transform-origin: 0% 100%;
+    transform: scale(calc(1/var(--ui-scale)));
+    
+    bottom: calc(100% - 4px/var(--ui-scale));
+    left: calc(11px/var(--ui-scale));
+    
+    transition: all .25s;
+}
 </style>
