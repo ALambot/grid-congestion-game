@@ -3,30 +3,24 @@ import MapNode from '@/components/map/MapNode.vue'
 import MapLine from '@/components/map/MapLine.vue'
 import MapContainer from '@/components/MapContainer.vue'
 import type { BaseGridNodeInput, GridLineWithResult } from '@/models/types'
-import { runSimulation } from '@/models/solver'
 import { computed, ref, type Ref } from 'vue'
 
 import dummyLevel from '@/levels/dummy1'
-import type { Level } from '@/levels/types'
+import { createLevel } from '@/levels/types'
 
-const level: Level = dummyLevel
+const level = createLevel(dummyLevel.gridConfig)
 
 const nodeLookup: Record<string, BaseGridNodeInput> = {}
-const allNodes = [...level.gridConfig.nodes.generators, ...level.gridConfig.nodes.loads, ...level.gridConfig.nodes.substations]
+const allNodes = [...level.inputGridConfig.nodes.generators, ...level.inputGridConfig.nodes.loads, ...level.inputGridConfig.nodes.substations]
 allNodes.forEach((node) => {nodeLookup[node.key] = node})
 
-const simulationResult: Ref<{[key: string]: GridLineWithResult}|undefined> = ref(undefined)
 
 const maxLoading: Ref<number|undefined> = computed(() => {
-    if (!simulationResult.value) return undefined
-    return Math.max( ...(Object.values(simulationResult.value).map((lr: GridLineWithResult) => {
+    if (!level.solvedGrid.value) return undefined
+    return Math.max( ...(Object.values(level.solvedGrid.value).map((lr: GridLineWithResult) => {
         return Math.round(Math.abs(lr.flow_MW)/lr.limit * 100)
     })))
 })
-
-function run(){
-    simulationResult.value = runSimulation(level.gridConfig)
-}
 
 const uiScale: Ref<number> = ref(1)
 
@@ -46,57 +40,73 @@ const uiScale: Ref<number> = ref(1)
 
             <template #overlay>
                 <div class="size-full p-2 flex flex-col-reverse">
-                    <div class="flex flex-col w-fit justify-start p-2 border bg-white rounded-xl pointer-events-auto">
-                        
-                        <button class="bg-blue-700 text-white py-1 px-2 rounded cursor-pointer" @click="run()">Run simulation</button>
-                        <span v-if="simulationResult">Max loading: <span class="font-bold">{{ maxLoading }}</span> %</span>
 
-                    </div>
+                    <div class="flex flex-row gap-2 items-end">
+
+                        <div class="flex-none flex flex-col size-fit justify-start p-2 border bg-white rounded-xl pointer-events-auto">
+                        
+                            <span v-if="level.solvedGrid">Max loading: <span class="font-bold">{{ maxLoading ?? "-" }}</span> %</span>
+
+                        </div>
+
+                        <div v-if="level.gridBalance.value" class="shrink w-full h-fit p-2 rounded-xl disclaimer-unbalanced flex items-center justify-center">
+                            GRID OUT-OF-BALANCE {{ level.gridBalance.value > 0 ? "+" : "" }} {{ level.gridBalance }} MW
+                        </div>
+
+                        </div>
+                    
                 </div>
             </template>
 
-            <div class="size-[800px] bg-green-50">
+            <div v-if="level.computedGrid.value" class="size-[800px] bg-green-50">
 
                 <MapNode
-                    v-for="node, index in level.gridConfig.nodes.generators" :key="index"
+                    v-for="node, index in level.computedGrid.value.nodes.generators" :key="index"
                     :node-key="node.key"
                     :x="node.x"
                     :y="node.y"
                     kind="generator"
                     :power="node.generation"
                     :ui-scale="uiScale"
-                    :asterisk="node.allowRedispatch"
+                    :redispatch="node.allowRedispatch"
+                    :redispatch-min="node.redispatchMin"
+                    :redispatch-max="node.redispatchMax"
+                    :level="level"
                 />
 
                 <MapNode
-                    v-for="node, index in level.gridConfig.nodes.loads" :key="index"
+                    v-for="node, index in level.computedGrid.value.nodes.loads" :key="index"
                     :node-key="node.key"
                     :x="node.x"
                     :y="node.y"
                     kind="load"
                     :power="-node.load"
                     :ui-scale="uiScale"
-                    :asterisk="node.allowRedispatch"
+                    :redispatch="node.allowRedispatch"
+                    :redispatch-min="node.redispatchMin"
+                    :redispatch-max="node.redispatchMax"
+                    :level="level"
                 />
 
                 <MapNode
-                    v-for="node, index in level.gridConfig.nodes.substations" :key="index"
+                    v-for="node, index in level.computedGrid.value.nodes.substations" :key="index"
                     :node-key="node.key"
                     :x="node.x"
                     :y="node.y"
                     kind="substation"
                     :ui-scale="uiScale"
+                    :level="level"
                 />
 
                 <MapLine
-                    v-for="line, index in level.gridConfig.lines.regular" :key="index"
+                    v-for="line, index in level.computedGrid.value.lines.regular" :key="index"
                     :line-key="line.key"
                     :start-x="nodeLookup[line.nodeFromKey].x"
                     :start-y="nodeLookup[line.nodeFromKey].y"
                     :end-x="nodeLookup[line.nodeToKey].x"
                     :end-y="nodeLookup[line.nodeToKey].y"
                     :capacity="line.limit"
-                    :flow="simulationResult?.[line.key].flow_MW"
+                    :flow="level.solvedGrid.value?.[line.key].flow_MW"
                     :reactance="line.reactance"
                     :ui-scale="uiScale"
                 />
@@ -107,9 +117,24 @@ const uiScale: Ref<number> = ref(1)
 
     </div>
 
-    <div class="h-full bg-white outline w-[30%] rounded-2xl p-4">
-        Actions
+    <div v-if="level.computedGrid.value" class="h-full bg-white outline w-[30%] rounded-2xl p-4">
+        Initial actions
+        <div 
+            v-for="action, index in level.computedGrid.value.actions"
+            :key="index"
+            >
+                <pre>{{ action }}</pre>
 
+        </div>
+
+        Additional actions
+        <div 
+            v-for="action, index in level.additionalGridActions.value"
+            :key="index"
+            >
+                <pre>{{ action }}</pre>
+
+        </div>
     </div>
 
 </div>
@@ -138,6 +163,17 @@ const uiScale: Ref<number> = ref(1)
 pre {
     overflow: auto;
     border: 1px solid black;
+}
+
+.disclaimer-unbalanced {
+    background: repeating-linear-gradient(45deg, hsla(0, 100%, 50%, 0.5) 0px, hsla(0, 100%, 50%, 0.5) 20px,  #ffffff00 20px, #ffffff00 40px);
+    border: 2px hsla(0, 100%, 50%) solid;
+    color: white;
+    font-weight: 900;
+    font-size: 1.5rem;
+    -webkit-text-stroke: 1px black;
+    text-shadow: 0 0 10px white, 0 0 2px black, 0 0 2px black, 0 0 2px black;
+    box-shadow: inset 0px 0px 10px 0px hsla(0, 0%, 0%, 0.5);
 }
 
 </style>

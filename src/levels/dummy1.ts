@@ -1,10 +1,10 @@
-import type { GeneratorGridNodeInput, InputGridConfig, LoadGridNodeInput, RegularGridLineInput, SubstationGridNodeInput } from "@/models/types"
+import type { GeneratorGridNodeInput, GridAction, InputGridConfig, LoadGridNodeInput, RegularGridLineInput, SubstationGridNodeInput } from "@/models/types"
 import type { Level } from "./types"
 
 const generators: GeneratorGridNodeInput[] = [
     { key: "gen1", generation: 90, x: 100, y: 200, allowRedispatch: true, redispatchMin: 50, redispatchMax: 120 },
     { key: "gen2", generation: 90, x: 200, y: 100 },
-    { key: "gen3", generation: 10, x: 500, y: 200 },
+    { key: "gen3", generation: 10, x: 500, y: 200, allowRedispatch: true, redispatchMin: 10, redispatchMax: 50 },
 ]
 
 const loads: LoadGridNodeInput[] = [
@@ -30,8 +30,13 @@ const lines: RegularGridLineInput[] = [
     { key: "line7", nodeFromKey: "sub3", busFrom: 1, nodeToKey: "sub4", busTo: 1, reactance: 0.1, limit: 100 },
     { key: "line8", nodeFromKey: "sub4", busFrom: 1, nodeToKey: "load1", busTo: 0, reactance: 0.1, limit: 200 },
     { key: "line9", nodeFromKey: "sub4", busFrom: 1, nodeToKey: "load2", busTo: 0, reactance: 0.1, limit: 50 },
-    { key: "line10", nodeFromKey: "sub3", busFrom: 1, nodeToKey: "gen3", busTo: 0, reactance: 0.1, limit: 20 },
+    { key: "line10", nodeFromKey: "sub3", busFrom: 1, nodeToKey: "gen3", busTo: 0, reactance: 0.1, limit: 50 },
     { key: "line11", nodeFromKey: "sub3", busFrom: 1, nodeToKey: "load3", busTo: 0, reactance: 0.1, limit: 20 },
+]
+
+const actions: GridAction[] = [
+    { kind: "redispatch", nodeKey: "gen1", power: 80 },
+    { kind: "redispatch", nodeKey: "load1", power: 160 }
 ]
 
 const config: InputGridConfig = {
@@ -44,7 +49,7 @@ const config: InputGridConfig = {
         regular: lines,
         pst: []
     },
-    actions: []
+    actions: actions
 }
 
 const level: Level = {

@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, type Ref } from 'vue';
+import type { InstantiatedLevel } from '@/levels/types';
+import { computed, ref, watch, type Ref } from 'vue';
 
 
 export interface MapNodeProps {
@@ -10,29 +11,61 @@ export interface MapNodeProps {
     name?: string,
     power?: number,
     uiScale: number,
-    asterisk?: boolean
+
+    redispatch?: boolean,
+    redispatchMin?: number,
+    redispatchMax?: number,
+
+    level: InstantiatedLevel
 }
 
 const {
+    nodeKey,
+    kind,
     x,
     y,
     power=0,
-    uiScale
+    uiScale,
+    level
 } = defineProps<MapNodeProps>()
 
+const powerSign = kind === "generator" ? 1 : -1
+
+const powerInner = ref(powerSign*power)
+
+
+
+watch(powerInner, (newVal, oldVal) => {
+    if (newVal === oldVal) return
+    if (powerInner.value === power) return
+    level.submitGridAction({
+        kind: "redispatch",
+        nodeKey: nodeKey,
+        power: Number(powerInner.value)
+    })
+})
+
 const powerString: Ref<string> = computed(() => {
-    if (!power) return ""
-    const sign = (power ?? 0) > 0 ? "+" : ""
-    return `${sign}${power}`
+    if (!powerInner.value) return ""
+    const sign = powerSign > 0 ? "+" : "-"
+    return `${sign}${powerInner.value}`
 })
 
 const powerModeString: Ref<string> = computed(() => {
-    if (!power) return ""
-    return (power ?? 0) > 0 ? "Generation" : "Load"
+    if (!powerInner.value) return ""
+    return (powerInner.value ?? 0) > 0 ? "Generation" : "Load"
 })
 
 function capitalize(str: string) {
     return str.charAt(0).toUpperCase() + str.slice(1)
+}
+
+const isPostHover = ref(false)
+function triggerPostHover() {
+    isPostHover.value = true
+    setTimeout(() => {
+        isPostHover.value = false
+    }, 500)
 }
 
 </script>
@@ -42,11 +75,13 @@ function capitalize(str: string) {
     <div 
         id="map-node" 
         class="absolute"
+        :class="{'post-hover': isPostHover}"
         :style="{
             '--x': x,
             '--y': y,
-            '--ui-scale': uiScale
+            '--ui-scale': uiScale,
         }"
+        @mouseleave="triggerPostHover"
     >
         <div 
             class="node-border flex justify-center items-center"
@@ -71,13 +106,22 @@ function capitalize(str: string) {
         <div 
             class="node-tooltip bg-white p-1.5 text-md border absolute flex flex-col"
             :class="{'left': x > 500}"
+            @mousedown.stop
         >
             <div class="text-nowrap">{{ capitalize(kind) }} - <span class="font-mono bg-stone-100">{{nodeKey}}</span></div>
             <div v-if="powerString" class="text-nowrap">{{ powerModeString }}: <span class="font-bold">{{ powerString }}</span> MW</div>
+            <div v-if="redispatch" class="text-nowrap flex flex-col">
+                Redispatch:
+                <div class="flex flex-row items-center gap-2">
+                    {{ (redispatchMin ?? 0) * powerSign }}
+                    <input class="cursor-pointer" type="range" :min="redispatchMin" :max="redispatchMax" step="10" v-model="powerInner"/>
+                    {{ (redispatchMax ?? 0) * powerSign }} MW
+                </div>
+            </div>
         </div>
 
-        <div v-if="asterisk" class="absolute asterisk text-3xl">
-            *
+        <div v-if="redispatch" class="absolute asterisk text-xl">
+            R
         </div>
         
     </div>
@@ -91,6 +135,12 @@ function capitalize(str: string) {
     top: calc(var(--y)*1px);
     z-index: 120;
     cursor: pointer;
+}
+#map-node:hover {
+    z-index: 130;
+}
+#map-node.post-hover {
+    z-index: 129;
 }
 
 .node-border {
@@ -155,7 +205,8 @@ function capitalize(str: string) {
     transform-origin: 0% 100%;
     transform: scale(calc(1/var(--ui-scale)));
 }
-#map-node:hover .node-tooltip {
+#map-node:hover .node-tooltip,
+.post-hover .node-tooltip {
     display: block;
 }
 
@@ -171,8 +222,8 @@ function capitalize(str: string) {
     transform-origin: 0% 100%;
     transform: scale(calc(1/var(--ui-scale)));
     
-    bottom: calc(100% - 4px/var(--ui-scale));
-    left: calc(11px/var(--ui-scale));
+    bottom: calc(100% + 2px/var(--ui-scale));
+    left: calc(18px/var(--ui-scale));
     
     transition: all .25s;
 }

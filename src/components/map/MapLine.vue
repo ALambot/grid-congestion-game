@@ -81,7 +81,7 @@ const size: Ref<number> = computed(() => {
 })
 
 const overloaded: Ref<boolean> = computed(() => {
-    return Math.abs(flow ?? 0) > (capacity ?? 0)
+    return Math.round(Math.abs(flow ?? 0) - (capacity ?? 0)) > 0
 })
 
 const absFlow: Ref<string|undefined> = computed(() => flow !== undefined ? Math.abs(flow).toFixed(2) : undefined)

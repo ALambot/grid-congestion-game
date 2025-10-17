@@ -81,10 +81,35 @@ export interface GridLineWithResult extends SolverGridLine {
     overloaded: boolean
 }
 
-// Actions TODO
-export interface GridAction {
 
+
+// Actions 
+
+export interface BaseGridAction {
+    kind: "redispatch"
 }
+
+export interface RedispatchAction extends BaseGridAction {
+    kind: "redispatch"
+    nodeKey: string
+    power: number
+}
+
+export type GridAction = RedispatchAction
+
+
+// Errors
+export interface BaseGridError {
+    kind: "balance"
+}
+
+export interface BalanceError {
+    kind: "balance"
+    generation: number
+    load: number
+}
+
+export type GridError = BalanceError
 
 // Configs
 export interface InputGridConfig {

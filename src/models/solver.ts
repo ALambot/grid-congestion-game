@@ -11,9 +11,6 @@ export function runSimulation(inputGridConfig: InputGridConfig): { [key: string]
 
     const nodesMW: number[] = solverGridConfig.nodes.map((node: SolverGridNode) => node.power)
 
-    // TODO apply actions that impact power (HVDC, Redispatch)
-
-
     // No auto-balance, raise error if gen and load are not balanced
     const netPower = nodesMW.reduce((acc, cur) => acc += cur, 0)
     if ( netPower !== 0 ){

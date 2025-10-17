@@ -1,4 +1,32 @@
-import type { GeneratorGridNodeInput, InputGridConfig, LoadGridNodeInput, PSTGridLineInput, RegularGridLineInput, SolverGridConfig, SolverGridLine, SolverGridNode, SubstationGridNodeInput } from "./types";
+import type { GeneratorGridNodeInput, GridAction, GridError, InputGridConfig, LoadGridNodeInput, PSTGridLineInput, RegularGridLineInput, SolverGridConfig, SolverGridLine, SolverGridNode, SubstationGridNodeInput } from "./types";
+
+export function applyActions(inputConfig: InputGridConfig): InputGridConfig | GridError {
+    
+    const newConfig = {...inputConfig}
+    
+    inputConfig.actions.forEach((action: GridAction) => {
+        
+        if (action.kind == "redispatch") {
+            
+            newConfig.nodes.generators = inputConfig.nodes.generators.map((node) => {
+                if (action.nodeKey === node.key) {
+                    return {...node, generation: action.power}
+                }
+                return node
+            })
+
+            newConfig.nodes.loads = inputConfig.nodes.loads.map((node) => {
+                if (action.nodeKey === node.key) {
+                    return {...node, load: action.power}
+                }
+                return node
+            })
+        }
+        
+    
+    })
+    return newConfig
+} 
 
 export function prepareGrid(inputConfig: InputGridConfig): SolverGridConfig {
     
@@ -13,27 +41,89 @@ export function prepareGrid(inputConfig: InputGridConfig): SolverGridConfig {
     
     // Convert nodes
     const solverNodes: SolverGridNode[] = []
+    
+    const generatorInputNodesLookup: {[key: string]: GeneratorGridNodeInput | undefined } = {}
+    const loadInputNodesLookup: {[key: string]: LoadGridNodeInput | undefined } = {}
+    const powerNodesLookup: {[key: string]: SolverGridNode["id"]} = {}
+
+    inputConfig.nodes.generators.forEach((node: GeneratorGridNodeInput) => {    
+        generatorInputNodesLookup[node.key] = node
+    })
+    inputConfig.nodes.loads.forEach((node: LoadGridNodeInput) => {    
+        loadInputNodesLookup[node.key] = node
+    })
+
+    /*
+    // Apply redispatch
+    inputConfig.actions.forEach((action: GridAction) => {
+        
+        if (action.kind !== "redispatch") return
+
+        const inputNode: GeneratorGridNodeInput | LoadGridNodeInput | undefined = generatorInputNodesLookup[action.nodeKey] ?? loadInputNodesLookup[action.nodeKey]
+        if (inputNode === undefined) {
+            console.error("Redispatch action : cannot find node with key", action.nodeKey)
+            return
+        }
+
+        if (!inputNode.allowRedispatch) {
+            console.error("Redispatch action : node not redispatchable")
+            return
+        }
+        if (!inputNode.redispatchMin) {
+            console.error("Redispatch action : redispatchMin not defined")
+            return
+        }
+        if (!inputNode.redispatchMax) {
+            console.error("Redispatch action : redispatchMax not defined")
+            return
+        }
+        if (action.power < inputNode.redispatchMin) {
+            console.error("Redispatch action : value below redispatchMin")
+            return
+        }
+        if (action.power > inputNode.redispatchMax) {
+            console.error("Redispatch action : value above redispatchMax")
+            return
+        }
+
+        // All good
+        if (inputNode.kind === "generator") {
+            inputNode.generation = action.power
+        } else if (inputNode.kind === "load") {
+            inputNode.load = action.power
+        } // TODO FIX...
+    })
+    */
 
     // Generator nodes
     inputConfig.nodes.generators.forEach((node: GeneratorGridNodeInput) => {
+        const id = solverNodes.length
+        const fullKey = nodeFullKey(node.key)
         solverNodes.push({
             ...node,
             kind: "generator",
-            id: solverNodes.length,
-            fullKey: nodeFullKey(node.key),
+            id: id,
+            fullKey: fullKey,
             power: node.generation
         })
+        powerNodesLookup[fullKey] = id
     })
 
     // Load nodes
     inputConfig.nodes.loads.forEach((node: LoadGridNodeInput) => {
+
+        loadInputNodesLookup[node.key] = node
+
+        const id = solverNodes.length
+        const fullKey = nodeFullKey(node.key)
         solverNodes.push({
             ...node,
             kind: "load",
-            id: solverNodes.length,
-            fullKey: nodeFullKey(node.key),
+            id: id,
+            fullKey: fullKey,
             power: -node.load
         })
+        powerNodesLookup[fullKey] = id
     })
 
     // Split substation nodes with buses
