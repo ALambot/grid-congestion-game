@@ -53,48 +53,6 @@ export function prepareGrid(inputConfig: InputGridConfig): SolverGridConfig {
         loadInputNodesLookup[node.key] = node
     })
 
-    /*
-    // Apply redispatch
-    inputConfig.actions.forEach((action: GridAction) => {
-        
-        if (action.kind !== "redispatch") return
-
-        const inputNode: GeneratorGridNodeInput | LoadGridNodeInput | undefined = generatorInputNodesLookup[action.nodeKey] ?? loadInputNodesLookup[action.nodeKey]
-        if (inputNode === undefined) {
-            console.error("Redispatch action : cannot find node with key", action.nodeKey)
-            return
-        }
-
-        if (!inputNode.allowRedispatch) {
-            console.error("Redispatch action : node not redispatchable")
-            return
-        }
-        if (!inputNode.redispatchMin) {
-            console.error("Redispatch action : redispatchMin not defined")
-            return
-        }
-        if (!inputNode.redispatchMax) {
-            console.error("Redispatch action : redispatchMax not defined")
-            return
-        }
-        if (action.power < inputNode.redispatchMin) {
-            console.error("Redispatch action : value below redispatchMin")
-            return
-        }
-        if (action.power > inputNode.redispatchMax) {
-            console.error("Redispatch action : value above redispatchMax")
-            return
-        }
-
-        // All good
-        if (inputNode.kind === "generator") {
-            inputNode.generation = action.power
-        } else if (inputNode.kind === "load") {
-            inputNode.load = action.power
-        } // TODO FIX...
-    })
-    */
-
     // Generator nodes
     inputConfig.nodes.generators.forEach((node: GeneratorGridNodeInput) => {
         const id = solverNodes.length

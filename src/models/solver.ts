@@ -1,13 +1,120 @@
 import { prepareGrid } from "./preparation";
-import type { InputGridConfig, GridLineWithResult, SolverGridNode, SolverGridConfig } from "./types"
+import type { InputGridConfig, GridLineWithResult, SolverGridNode, SolverGridConfig, SolverGridLine } from "./types"
+
+/** Union-find, to detect and split disconnected parts of the grid into subgrids, because the solver only works on fully connected grids */
+export function splitSubGrids(grid: SolverGridConfig): SolverGridConfig[] {
+
+    // Prepare roots
+    const roots: number[] = []
+    grid.nodes.forEach((node: SolverGridNode, index) => {
+        // Sanity check
+        if (node.id !== index) {
+            console.error('"node.id !== index" in splitSubGrids')
+        }
+        roots.push(index)
+    })
+
+    // Iterate over lines to link roots
+    grid.lines.forEach((line: SolverGridLine) => {
+        const id1 = line.nodeFromId
+        const id2 = line.nodeToId
+
+        // Find graphs roots
+        let anchor1 = roots[id1]
+        while (roots[anchor1] !== anchor1) {
+            anchor1 = roots[anchor1]
+        }
+        let anchor2 = roots[id2]
+        while (roots[anchor2] !== anchor2) {
+            anchor2 = roots[anchor2]
+        }
+
+        const anchorMin = Math.min(anchor1, anchor2)
+        const anchorMax = Math.max(anchor1, anchor2)
+
+        // Assign (new) anchorMin to target nodes and their anchors
+        roots[line.nodeFromId] = anchorMin
+        roots[line.nodeToId] = anchorMin
+        roots[anchorMax] = anchorMin
+    })
+
+    // Second pass to find true roots
+    roots.forEach((root, index) => {
+        roots[index] = roots[root]
+    })
+
+    // Splitting into subgrids
+    // We'll need node id remapping
+    const nodeIdRemap: {[oldId: number]: number} = {}
+    // First the nodes
+    const subgrids: {[anchor: number]: SolverGridConfig} = {}
+    grid.nodes.forEach((node: SolverGridNode, index) => {
+        
+        const anchor = roots[index]
+        
+        // Ensure target subgrid is initialized
+        if (subgrids[anchor] === undefined) {
+            subgrids[anchor] = {nodes:[], lines: []}
+        }
+
+        // Determine new node id and register in remap
+        const newId = subgrids[anchor].nodes.length
+        nodeIdRemap[node.id] = newId
+
+        subgrids[anchor].nodes.push({
+            ...node,
+            id: newId
+        })
+    })
+    // Then the lines
+    grid.lines.forEach((line: SolverGridLine) => {
+
+        // Since (active) lines cannot be in two grids, we can just look at one node
+        const anchor = roots[line.nodeFromId]
+
+        subgrids[anchor].lines.push({
+            ...line,
+            nodeFromId: nodeIdRemap[line.nodeFromId],
+            nodeToId: nodeIdRemap[line.nodeToId],
+        })
+    })
+
+    return Object.values(subgrids)
+
+}
+
+/** Prepare the grid, split into subgrids if needed, run a simulation for each, collect results*/
+export function runSimulations(inputGridConfig: InputGridConfig): { [key: string]: GridLineWithResult } | undefined {
+    
+    // Prepare
+    const solverGridConfig: SolverGridConfig = prepareGrid(inputGridConfig)
+    
+    let results: { [key: string]: GridLineWithResult } = {}
+    
+    // Split
+    splitSubGrids(solverGridConfig).forEach((solverGrid: SolverGridConfig) => {
+        
+        // Run simulation
+        const partialResults = runSimulation(solverGrid)
+        
+        // Collect results
+        if (partialResults !== undefined) {
+            results = {
+                ...results,
+                ...partialResults
+            }
+        }
+    })
+
+    return results
+
+}
 
 /** Semi vibe-coded, especially the maths */
-export function runSimulation(inputGridConfig: InputGridConfig): { [key: string]: GridLineWithResult } | undefined {
+export function runSimulation(solverGridConfig: SolverGridConfig): { [key: string]: GridLineWithResult } | undefined {
 
     const sBase = 100 // MVA
     const slackIndex = 0
-
-    const solverGridConfig: SolverGridConfig = prepareGrid(inputGridConfig)
 
     const nodesMW: number[] = solverGridConfig.nodes.map((node: SolverGridNode) => node.power)
 

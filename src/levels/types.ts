@@ -1,4 +1,4 @@
-import { runSimulation } from "@/models/solver"
+import { runSimulations } from "@/models/solver"
 import type { GridAction, GridLineWithResult, InputGridConfig } from "@/models/types"
 import { computed, ref, type Ref } from "vue"
 
@@ -66,7 +66,7 @@ export function createLevel(inputGridConfig: InputGridConfig): InstantiatedLevel
 
     const solvedGrid: Ref<{[key: string]: GridLineWithResult}|undefined> = computed(() => {
         if(!computedGrid.value) return undefined
-      return runSimulation(computedGrid.value)
+      return runSimulations(computedGrid.value)
     })
 
     // compute stuff like grid balance

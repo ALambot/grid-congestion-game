@@ -106,7 +106,7 @@ const uiScale: Ref<number> = ref(1)
                     :end-x="nodeLookup[line.nodeToKey].x"
                     :end-y="nodeLookup[line.nodeToKey].y"
                     :capacity="line.limit"
-                    :flow="level.solvedGrid.value?.[line.key].flow_MW"
+                    :flow="level.solvedGrid.value?.[line.key]?.flow_MW"
                     :reactance="line.reactance"
                     :ui-scale="uiScale"
                 />
