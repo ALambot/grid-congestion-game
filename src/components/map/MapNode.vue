@@ -105,7 +105,7 @@ function triggerPostHover() {
 
         <div 
             class="node-tooltip bg-white p-1.5 text-md border absolute flex flex-col"
-            :class="{'left': x > 500}"
+            :class="{'left': x > 400}"
             @mousedown.stop
         >
             <div class="text-nowrap">{{ capitalize(kind) }} - <span class="font-mono bg-stone-100">{{nodeKey}}</span></div>

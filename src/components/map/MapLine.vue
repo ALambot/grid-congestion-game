@@ -59,7 +59,7 @@ const hsl: Ref<{h: number, s: number, l: number}> = computed(() => {
     const intensityInv = 1 - intensity
 
     const hue = 20 + intensityInv * 80
-    const light = 80 - intensity * 20
+    const light = 60 - intensity * 10
 
     return {h: hue, s: 100, l: light}
 })

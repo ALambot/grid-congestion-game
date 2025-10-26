@@ -12,7 +12,7 @@ const loads: LoadGridNodeInput[] = [
     { key: "load1", load: 170, x: 700, y: 600, allowRedispatch: true, redispatchMin: 100, redispatchMax: 250 },
     { key: "load2", load: 10, x: 600, y: 700 },
     { key: "load3", load: 10, x: 600, y: 300 },
-    { key: "load4", load: 10, x: 100, y: 500 },
+    { key: "load4", load: 10, x: 100, y: 600 },
 ]
 
 const substations: SubstationGridNodeInput[] = [
@@ -34,7 +34,7 @@ const lines: RegularGridLineInput[] = [
     { key: "line9", nodeFromKey: "sub4", busFrom: 1, nodeToKey: "load2", busTo: 0, reactance: 0.1, limit: 50 },
     { key: "line10", nodeFromKey: "sub3", busFrom: 1, nodeToKey: "gen3", busTo: 0, reactance: 0.1, limit: 50 },
     { key: "line11", nodeFromKey: "sub3", busFrom: 1, nodeToKey: "load3", busTo: 0, reactance: 0.1, limit: 20 },
-    { key: "line12", nodeFromKey: "gen4", busFrom: 0, nodeToKey: "load4", busTo: 0, reactance: 0.1, limit: 15 },
+    { key: "line12", nodeFromKey: "gen4", busFrom: 0, nodeToKey: "load4", busTo: 0, reactance: 0.1, limit: 100 },
 ]
 
 const actions: GridAction[] = [

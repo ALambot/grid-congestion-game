@@ -7,6 +7,7 @@ import { computed, ref, type Ref } from 'vue'
 
 import dummyLevel from '@/levels/dummy1'
 import { createLevel } from '@/levels/types'
+import BusBars from '@/components/map/BusBars.vue'
 
 const level = createLevel(dummyLevel.gridConfig)
 
@@ -118,6 +119,9 @@ const uiScale: Ref<number> = ref(1)
     </div>
 
     <div v-if="level.computedGrid.value" class="h-full bg-white outline w-[30%] rounded-2xl p-4">
+
+        <BusBars></BusBars>
+
         Initial actions
         <div 
             v-for="action, index in level.computedGrid.value.actions"
