@@ -27,6 +27,7 @@ export function createLevel(inputGridConfig: InputGridConfig): InstantiatedLevel
 
         allActions.forEach((action: GridAction) => {
         
+            // Redispatch
             if (action.kind == "redispatch") {
                 
                 newConfig.nodes.generators = newConfig.nodes.generators.map((node) => {
@@ -41,6 +42,24 @@ export function createLevel(inputGridConfig: InputGridConfig): InstantiatedLevel
                         return {...node, load: action.power}
                     }
                     return node
+                })
+            }
+
+            // Bus reassignment
+            if (action.kind == "buschange") {
+                newConfig.lines.regular = newConfig.lines.regular.map((line) => {
+                    if (action.lineKey === line.key) {
+
+                        if (action.substationKey === line.nodeFromKey) {
+                            return {...line, busFrom: action.bus}
+                        }
+
+                        if (action.substationKey === line.nodeToKey) {
+                            return {...line, busTo: action.bus}
+                        }
+
+                    }
+                    return line
                 })
             }
         })
@@ -69,12 +88,9 @@ export function createLevel(inputGridConfig: InputGridConfig): InstantiatedLevel
       return runSimulations(computedGrid.value)
     })
 
-    // compute stuff like grid balance
-
     function submitGridAction(action: GridAction) {
         // TODO check if action is valid
 
-        // Look for existing action in initial actions
         if (action.kind === "redispatch") {
 
             let found = false
@@ -89,11 +105,28 @@ export function createLevel(inputGridConfig: InputGridConfig): InstantiatedLevel
             if (found) return
 
             additionalGridActions.value.push(action)
-
         }
-        
-        
-        
+
+        if (action.kind === "buschange") {
+
+            let found = false
+
+            additionalGridActions.value.forEach((a) => {
+                if (
+                    !found 
+                    && a.kind === "buschange" 
+                    && a.substationKey === action.substationKey
+                    && a.lineKey === action.lineKey
+                ) {
+                    a.bus = action.bus
+                    found = true
+                }
+            })
+
+            if (found) return
+
+            additionalGridActions.value.push(action)
+        }
     }
 
     return {

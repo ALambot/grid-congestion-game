@@ -86,7 +86,7 @@ export interface GridLineWithResult extends SolverGridLine {
 // Actions 
 
 export interface BaseGridAction {
-    kind: "redispatch"
+    kind: "redispatch" | "buschange"
 }
 
 export interface RedispatchAction extends BaseGridAction {
@@ -95,7 +95,14 @@ export interface RedispatchAction extends BaseGridAction {
     power: number
 }
 
-export type GridAction = RedispatchAction
+export interface BusChangeAction extends BaseGridAction {
+    kind: "buschange"
+    substationKey: string
+    lineKey: string
+    bus: number
+}
+
+export type GridAction = RedispatchAction | BusChangeAction
 
 
 // Errors

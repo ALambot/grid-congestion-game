@@ -7,7 +7,6 @@ import { computed, ref, type Ref } from 'vue'
 
 import dummyLevel from '@/levels/dummy1'
 import { createLevel } from '@/levels/types'
-import BusBars from '@/components/map/BusBars.vue'
 
 const level = createLevel(dummyLevel.gridConfig)
 
@@ -24,6 +23,10 @@ const maxLoading: Ref<number|undefined> = computed(() => {
 })
 
 const uiScale: Ref<number> = ref(1)
+
+function capitalize(word: string) {
+    return word.charAt(0).toLocaleUpperCase() + word.slice(1)
+}
 
 </script>
 
@@ -61,6 +64,7 @@ const uiScale: Ref<number> = ref(1)
 
             <div v-if="level.computedGrid.value" class="size-[800px] bg-green-50">
 
+                <!-- Generators -->
                 <MapNode
                     v-for="node, index in level.computedGrid.value.nodes.generators" :key="index"
                     :node-key="node.key"
@@ -75,6 +79,7 @@ const uiScale: Ref<number> = ref(1)
                     :level="level"
                 />
 
+                <!-- Loads -->
                 <MapNode
                     v-for="node, index in level.computedGrid.value.nodes.loads" :key="index"
                     :node-key="node.key"
@@ -89,6 +94,7 @@ const uiScale: Ref<number> = ref(1)
                     :level="level"
                 />
 
+                <!-- Substations -->
                 <MapNode
                     v-for="node, index in level.computedGrid.value.nodes.substations" :key="index"
                     :node-key="node.key"
@@ -99,6 +105,7 @@ const uiScale: Ref<number> = ref(1)
                     :level="level"
                 />
 
+                <!-- Lines -->
                 <MapLine
                     v-for="line, index in level.computedGrid.value.lines.regular" :key="index"
                     :line-key="line.key"
@@ -118,27 +125,31 @@ const uiScale: Ref<number> = ref(1)
 
     </div>
 
-    <div v-if="level.computedGrid.value" class="h-full bg-white outline w-[30%] rounded-2xl p-4">
+    <div v-if="level.computedGrid.value" class="h-full bg-white outline w-[30%] rounded-2xl p-4 overflow-auto flex flex-col gap-2">
 
-        <BusBars></BusBars>
-
-        Initial actions
+        <span class="text-xl">Grid actions</span>
         <div 
-            v-for="action, index in level.computedGrid.value.actions"
+            v-for="action, index in level.computedGrid.value.actions.concat(level.additionalGridActions.value)"
             :key="index"
             >
-                <pre>{{ action }}</pre>
+                <div 
+                    class="rounded flex flex-col border p-2"
+                    :class="{
+                        'bg-amber-100 border-amber-800': action.kind === 'redispatch',
+                        'bg-blue-100 border-blue-800': action.kind === 'buschange'
+                    }"
+                >
+                    <span class="font-bold">{{ capitalize(action.kind) }}</span>
+                    <span 
+                        v-for="actionDetails, index in Object.entries(action).filter((det) => det[0] !== 'kind')"
+                        :key="index"
+                    >
+                        {{ capitalize(actionDetails[0]) }}: <span class="font-mono bg-gray-100">{{ actionDetails[1] }}</span>
+                    </span>
+                </div>
 
         </div>
 
-        Additional actions
-        <div 
-            v-for="action, index in level.additionalGridActions.value"
-            :key="index"
-            >
-                <pre>{{ action }}</pre>
-
-        </div>
     </div>
 
 </div>

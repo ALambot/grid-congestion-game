@@ -261,7 +261,7 @@ const absLoadingShort: Ref<string|undefined> = computed(() => flow !== undefined
 }
 
 .ui-shadow{
-    box-shadow: 0 0 5px grey;
+    /*box-shadow: 0 0 5px grey;*/
 }
 
 </style>

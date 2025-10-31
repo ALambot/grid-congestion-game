@@ -1,20 +1,22 @@
 <script setup lang="ts">
 import type { InstantiatedLevel } from '@/levels/types';
 import { computed, ref, watch, type Ref } from 'vue';
+import BusBars, { type BusBarsLineProps, type BusBarsProps } from '@/components/map/BusBars.vue';
+import type { RegularGridLineInput, SubstationGridNodeInput } from '@/models/types';
 
 
 export interface MapNodeProps {
-    x: number,
-    y: number,
-    kind: "generator" | "load" | "substation",
-    nodeKey: string,
-    name?: string,
-    power?: number,
-    uiScale: number,
+    x: number
+    y: number
+    kind: "generator" | "load" | "substation"
+    nodeKey: string
+    name?: string
+    power?: number
+    uiScale: number
 
-    redispatch?: boolean,
-    redispatchMin?: number,
-    redispatchMax?: number,
+    redispatch?: boolean
+    redispatchMin?: number
+    redispatchMax?: number
 
     level: InstantiatedLevel
 }
@@ -68,6 +70,50 @@ function triggerPostHover() {
     }, 500)
 }
 
+// BusBars props
+const busBarProps: Ref<BusBarsProps|undefined> = computed(() => {
+    // Only applicable for substations
+    if (kind !== "substation") return undefined
+
+    // Getting the node TODO optimize
+    const snodes = level.computedGrid.value?.nodes.substations.filter((substationNode: SubstationGridNodeInput) => substationNode.key === nodeKey)
+    if (snodes?.length !== 1) return undefined
+    const snode = snodes[0]
+
+
+    // Getting the lines TODO optimize
+    const slines = level.computedGrid.value?.lines.regular
+    .filter((rline: RegularGridLineInput ) => rline.nodeFromKey === nodeKey || rline.nodeToKey === nodeKey)
+    .map((rline: RegularGridLineInput) => {
+        
+        // Is our substation the node "from" or "to" defined on this line ?
+        const mode = rline.nodeFromKey === nodeKey ? "from" : "to"
+
+        // Simulation results if available
+        const results = level.solvedGrid.value?.[rline.key]
+        const flow = Number(results?.flow_MW?.toFixed(0))
+        
+        const bblp: BusBarsLineProps = {
+            key: rline.key,
+            otherNode: mode === "from" ? rline.nodeToKey : rline.nodeFromKey,
+            onBus: mode === "from" ? rline.busFrom : rline.busTo,
+            inflow: mode === "from" ? -flow : flow,
+            loading: Number((Math.abs(results?.flow_MW ?? 0) / (results?.limit ?? 1) * 100).toFixed(0))
+        }
+
+        return bblp
+    })
+    
+    const bbp: BusBarsProps = {
+        substationKey: nodeKey,
+        level: level,
+        buses: snode.buses,
+        lines: slines ?? []
+    }
+
+    return bbp
+})
+
 </script>
 
 <template>
@@ -109,7 +155,9 @@ function triggerPostHover() {
             @mousedown.stop
         >
             <div class="text-nowrap">{{ capitalize(kind) }} - <span class="font-mono bg-stone-100">{{nodeKey}}</span></div>
+            
             <div v-if="powerString" class="text-nowrap">{{ powerModeString }}: <span class="font-bold">{{ powerString }}</span> MW</div>
+            
             <div v-if="redispatch" class="text-nowrap flex flex-col">
                 Redispatch:
                 <div class="flex flex-row items-center gap-2">
@@ -118,6 +166,11 @@ function triggerPostHover() {
                     {{ (redispatchMax ?? 0) * powerSign }} MW
                 </div>
             </div>
+
+            <div v-if="kind === 'substation' && busBarProps">
+                <BusBars v-bind="busBarProps"></BusBars>
+            </div>
+
         </div>
 
         <div v-if="redispatch" class="absolute asterisk text-xl">
@@ -166,7 +219,7 @@ function triggerPostHover() {
 .generator-border,
 .load-border {
     background-color: black;
-    box-shadow: 0px 0px 4px grey;
+    /*box-shadow: 0px 0px 4px grey;*/
 }
 
 .generator-marker,
@@ -204,6 +257,7 @@ function triggerPostHover() {
 
     transform-origin: 0% 100%;
     transform: scale(calc(1/var(--ui-scale)));
+    transition: transform .25s;
 }
 #map-node:hover .node-tooltip,
 .post-hover .node-tooltip {
