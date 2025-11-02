@@ -3,36 +3,70 @@ import MapNode from '@/components/map/MapNode.vue'
 import MapLine from '@/components/map/MapLine.vue'
 import MapContainer from '@/components/MapContainer.vue'
 import type { BaseGridNodeInput, GridLineWithResult } from '@/models/types'
-import { computed, ref, type Ref } from 'vue'
+import { computed, onMounted, ref, shallowRef, watch, type Ref, type ShallowRef } from 'vue'
 
-import dummyLevel from '@/levels/dummy1'
-import { createLevel } from '@/levels/types'
+import { useRoute } from 'vue-router'
 
-const level = createLevel(dummyLevel.gridConfig)
+import { createLevel, loadLevel, type InstantiatedLevel, type Level } from '@/levels/types'
 
-const nodeLookup: Record<string, BaseGridNodeInput> = {}
-const allNodes = [...level.inputGridConfig.nodes.generators, ...level.inputGridConfig.nodes.loads, ...level.inputGridConfig.nodes.substations]
-allNodes.forEach((node) => {nodeLookup[node.key] = node})
+const route = useRoute()
+const targetLevel = computed(() => `${route.params.section}/${route.params.levelId}`)
 
+// ShallowRef to avoid auto ref unwrapping of computedGrid, solvedGrid, ... which causes TS to no longer agree with correct unwrapping
+const level: ShallowRef<InstantiatedLevel|undefined> = shallowRef(undefined) 
+
+const uiScale: Ref<number> = ref(1)
+
+const nodeLookup: Ref<Record<string, BaseGridNodeInput>> = computed(() => {
+
+    const nlo: Record<string, BaseGridNodeInput> = {}
+
+    const allNodes = [
+        ...level.value?.inputGridConfig.nodes.generators ?? [], 
+        ...level.value?.inputGridConfig.nodes.loads ?? [], 
+        ...level.value?.inputGridConfig.nodes.substations ?? []
+    ]
+    allNodes.forEach((node) => {nlo[node.key] = node})
+
+    return nlo
+})
 
 const maxLoading: Ref<number|undefined> = computed(() => {
-    if (!level.solvedGrid.value) return undefined
-    return Math.max( ...(Object.values(level.solvedGrid.value).map((lr: GridLineWithResult) => {
+    if (!level.value?.solvedGrid.value) return undefined
+    return Math.max( ...(Object.values(level.value.solvedGrid.value).map((lr: GridLineWithResult) => {
         return Math.round(Math.abs(lr.flow_MW)/lr.limit * 100)
     })))
 })
 
-const uiScale: Ref<number> = ref(1)
-
+// TODO Move to utils
 function capitalize(word: string) {
     return word.charAt(0).toLocaleUpperCase() + word.slice(1)
 }
+
+async function reloadLevel() {
+    // Reset level, otherwise stuff is not reactively reset properly
+    level.value = undefined
+    uiScale.value = 1
+    // Init again
+    const loadedLevel = (await loadLevel(targetLevel.value)) as Level
+    const createdLevel: InstantiatedLevel = createLevel(loadedLevel.gridConfig)
+    level.value = createdLevel
+}
+
+watch(targetLevel, () => {
+    reloadLevel()
+})
+
+onMounted(() => {
+    reloadLevel()
+})
 
 </script>
 
 <template>
 
-<div class="size-full flex flex-row items-start justify-center gap-5">
+<Transition name="fade">
+<div v-if="level" id="game-container" class="size-full flex flex-row items-center justify-center gap-2">
 
     <div class="size-[800px] outline rounded-2xl overflow-hidden">
 
@@ -49,12 +83,12 @@ function capitalize(word: string) {
 
                         <div class="flex-none flex flex-col size-fit justify-start p-2 border bg-white rounded-xl pointer-events-auto">
                         
-                            <span v-if="level.solvedGrid">Max loading: <span class="font-bold">{{ maxLoading ?? "-" }}</span> %</span>
+                            <span v-if="level?.solvedGrid.value">Max loading: <span class="font-bold">{{ maxLoading ?? "-" }}</span> %</span>
 
                         </div>
 
-                        <div v-if="level.gridBalance.value" class="shrink w-full h-fit p-2 rounded-xl disclaimer-unbalanced flex items-center justify-center">
-                            GRID OUT-OF-BALANCE {{ level.gridBalance.value > 0 ? "+" : "" }} {{ level.gridBalance }} MW
+                        <div v-if="level?.gridBalance.value" class="shrink w-full h-fit p-2 rounded-xl disclaimer-unbalanced flex items-center justify-center">
+                            GRID OUT-OF-BALANCE {{ level.gridBalance.value > 0 ? "+" : "" }} {{ level.gridBalance.value }} MW
                         </div>
 
                         </div>
@@ -62,7 +96,7 @@ function capitalize(word: string) {
                 </div>
             </template>
 
-            <div v-if="level.computedGrid.value" class="size-[800px] bg-green-50">
+            <div v-if="level?.computedGrid.value" class="size-[800px] bg-green-50">
 
                 <!-- Generators -->
                 <MapNode
@@ -125,7 +159,7 @@ function capitalize(word: string) {
 
     </div>
 
-    <div v-if="level.computedGrid.value" class="h-full bg-white outline w-[30%] rounded-2xl p-4 overflow-auto flex flex-col gap-2">
+    <div v-if="level?.computedGrid.value" class="h-full bg-white outline w-[30%] rounded-2xl p-4 overflow-auto flex flex-col gap-2">
 
         <span class="text-xl">Grid actions</span>
         <div 
@@ -153,6 +187,7 @@ function capitalize(word: string) {
     </div>
 
 </div>
+</Transition>
 
 </template>
 
@@ -173,6 +208,20 @@ function capitalize(word: string) {
         linear-gradient(90deg,var(--c1)   calc(100%/6),var(--c2) 0 50%,
                             var(--c1) 0 calc(500%/6),var(--c2) 0);
     background-size: calc(1.732*var(--s)) var(--s);
+}
+
+/** Transition fade */
+.fade-enter-active,
+.fade-leave-active {
+  transition: all .5s ease-out;
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+.fade-enter-to,
+.fade-leave-from {
+  opacity: 1;
 }
 
 pre {

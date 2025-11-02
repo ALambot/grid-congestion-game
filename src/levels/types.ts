@@ -1,6 +1,6 @@
 import { runSimulations } from "@/models/solver"
 import type { GridAction, GridLineWithResult, InputGridConfig } from "@/models/types"
-import { computed, ref, type Ref } from "vue"
+import { computed, ref, type ComputedRef, type Ref } from "vue"
 
 export interface Level {
     gridConfig: InputGridConfig
@@ -8,9 +8,9 @@ export interface Level {
 
 export interface InstantiatedLevel {
     inputGridConfig: InputGridConfig
-    computedGrid: Ref<InputGridConfig|undefined>
-    gridBalance: Ref<number>
-    solvedGrid: Ref<{[key: string]: GridLineWithResult}|undefined>
+    computedGrid: ComputedRef<InputGridConfig|undefined>
+    gridBalance: ComputedRef<number>
+    solvedGrid: ComputedRef<{[key: string]: GridLineWithResult}|undefined>
     submitGridAction: (action: GridAction) => void
     additionalGridActions: Ref<GridAction[]>
 }
@@ -19,7 +19,7 @@ export function createLevel(inputGridConfig: InputGridConfig): InstantiatedLevel
     
     const additionalGridActions: Ref<GridAction[]> = ref([])
 
-    const computedGrid: Ref<InputGridConfig|undefined> = computed(() => {
+    const computedGrid: ComputedRef<InputGridConfig|undefined> = computed(() => {
 
         const newConfig = {...inputGridConfig}
 
@@ -68,7 +68,7 @@ export function createLevel(inputGridConfig: InputGridConfig): InstantiatedLevel
     })
     
     // Total generation - load
-    const gridBalance: Ref<number> = computed(() => {
+    const gridBalance: ComputedRef<number> = computed(() => {
         
         let sum = 0
         
@@ -83,7 +83,7 @@ export function createLevel(inputGridConfig: InputGridConfig): InstantiatedLevel
         return sum
     })
 
-    const solvedGrid: Ref<{[key: string]: GridLineWithResult}|undefined> = computed(() => {
+    const solvedGrid: ComputedRef<{[key: string]: GridLineWithResult}|undefined> = computed(() => {
         if(!computedGrid.value) return undefined
       return runSimulations(computedGrid.value)
     })
@@ -137,4 +137,14 @@ export function createLevel(inputGridConfig: InputGridConfig): InstantiatedLevel
         submitGridAction,
         additionalGridActions
     }
+}
+
+const levelModules = import.meta.glob('@/levels/*/*.ts')
+
+export async function loadLevel(name: string) {
+    console.log("Loading level:", name)
+    const path = `/src/levels/${name}.ts`
+    const mod = await levelModules[path]()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return (mod as any).default as Level
 }
