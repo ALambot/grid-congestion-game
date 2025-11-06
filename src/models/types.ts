@@ -5,6 +5,7 @@ export interface BaseGridNodeInput {
     name?: string
     x: number
     y: number
+    icon?: "wind" | "thermal" | "town" | "industry"
 }
 
 export interface GeneratorGridNodeInput extends BaseGridNodeInput {

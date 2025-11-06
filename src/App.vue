@@ -40,7 +40,7 @@ function capitalize(word: string) {
     <div class="size-full flex">
 
       <!-- Left menu -->
-      <div v-if="!leftMenuCollapsed" class="h-full shrink-0 basis-65 bg-[hsla(100,100%,25%,100%)] flex flex-col p-2 gap-2">
+      <div v-if="!leftMenuCollapsed" class="h-full shrink-0 basis-70 bg-[hsla(100,100%,25%,100%)] flex flex-col p-4 gap-2">
 
         <!-- Title and collapse-->
         <div class="flex items-center justify-center gap-2 text-white fill-white">

@@ -2,13 +2,13 @@ import type { GeneratorGridNodeInput, GridAction, InputGridConfig, LoadGridNodeI
 import type { Level } from "@/levels/types"
 
 const generators: GeneratorGridNodeInput[] = [
-    { key: "gen1", generation: 90, x: 100, y: 200, allowRedispatch: true, redispatchMin: 50, redispatchMax: 120 },
-    { key: "gen2", generation: 90, x: 200, y: 100 },
+    { key: "gen1", icon: "wind", generation: 90, x: 100, y: 200, allowRedispatch: true, redispatchMin: 50, redispatchMax: 120 },
+    { key: "gen2", icon: "thermal", generation: 90, x: 200, y: 100 },
 ]
 
 const loads: LoadGridNodeInput[] = [
-    { key: "load1", load: 170, x: 700, y: 600, allowRedispatch: true, redispatchMin: 100, redispatchMax: 250 },
-    { key: "load2", load: 10, x: 600, y: 700 },
+    { key: "load1", icon: "industry", load: 170, x: 700, y: 600, allowRedispatch: true, redispatchMin: 100, redispatchMax: 250 },
+    { key: "load2", icon: "town", load: 10, x: 600, y: 700 },
 ]
 
 const substations: SubstationGridNodeInput[] = [

@@ -111,6 +111,7 @@ onMounted(() => {
                     :redispatch-min="node.redispatchMin"
                     :redispatch-max="node.redispatchMax"
                     :level="level"
+                    :icon="node.icon"
                 />
 
                 <!-- Loads -->
@@ -126,6 +127,7 @@ onMounted(() => {
                     :redispatch-min="node.redispatchMin"
                     :redispatch-max="node.redispatchMax"
                     :level="level"
+                    :icon="node.icon"
                 />
 
                 <!-- Substations -->
@@ -137,6 +139,7 @@ onMounted(() => {
                     kind="substation"
                     :ui-scale="uiScale"
                     :level="level"
+                    :icon="node.icon"
                 />
 
                 <!-- Lines -->
