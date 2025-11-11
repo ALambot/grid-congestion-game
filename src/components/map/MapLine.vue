@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, type Ref } from 'vue';
+import type { InstantiatedLevel } from '@/levels/types';
+import { computed, ref, watch, type Ref } from 'vue';
 
 
 export interface MapLineProps {
@@ -11,8 +12,12 @@ export interface MapLineProps {
     endY: number,
     flow?: number,
     capacity?: number,
-    reactance: number,
-    uiScale: number
+    reactance?: number,
+    uiScale: number,
+    hvdcFlowMin?: number,
+    hvdcFlowMax?: number,
+    lineType?: "regular"|"hvdc"
+    level: InstantiatedLevel
 }
 
 const {
@@ -24,7 +29,11 @@ const {
     flow,
     capacity,
     reactance,
-    uiScale
+    uiScale,
+    hvdcFlowMin,
+    hvdcFlowMax,
+    lineType="regular",
+    level
 } = defineProps<MapLineProps>()
 
 const minX = Math.min(startX, endX)
@@ -39,6 +48,8 @@ const dist = Math.sqrt(width**2 + height**2)
 const angleDeg = Math.atan((endY-startY)/(endX-startX)) / Math.PI * 180 + 180 * Number((endX < startX))
 
 const hsl: Ref<{h: number, s: number, l: number}> = computed(() => {
+
+    if (lineType === "hvdc") return {h: 222, s: 80, l: 40}
 
     // Undefined -> grey
     if (flow === undefined || capacity === undefined) return {h: 0, s: 0, l: 50}
@@ -81,6 +92,7 @@ const size: Ref<number> = computed(() => {
 })
 
 const overloaded: Ref<boolean> = computed(() => {
+    if (lineType === "hvdc") return false
     return Math.round(Math.abs(flow ?? 0) - (capacity ?? 0)) > 0
 })
 
@@ -88,6 +100,17 @@ const absFlow: Ref<string|undefined> = computed(() => flow !== undefined ? Math.
 
 const absLoading: Ref<string|undefined> = computed(() => flow !== undefined && capacity !== undefined ? Math.abs(flow/capacity*100).toFixed(2) : undefined)
 const absLoadingShort: Ref<string|undefined> = computed(() => flow !== undefined && capacity !== undefined ? Math.abs(flow/capacity*100).toFixed(0) : undefined)
+
+const hvdcSetFlow = ref(flow)
+watch(hvdcSetFlow, (newVal, oldVal) => {
+    if (newVal === oldVal) return
+    if (hvdcSetFlow.value === flow) return
+    level.submitGridAction({
+        kind: "hvdc",
+        hvdcKey: lineKey,
+        flow: Number(hvdcSetFlow.value)
+    })
+})
 
 </script>
 
@@ -124,17 +147,33 @@ const absLoadingShort: Ref<string|undefined> = computed(() => flow !== undefined
             
             <div class="line-tooltip items-center justify-center">
                 <div class="line-tooltip-content bg-white py-1.5 px-2 border flex flex-col text-md ui-shadow">
-                    <div class="text-nowrap">HV AC - <span class="font-mono bg-stone-100">{{ lineKey }}</span></div>
+                    <div v-if="lineType === 'regular'" class="text-nowrap">HV AC - <span class="font-mono bg-stone-100">{{ lineKey }}</span></div>
+                    <div v-if="lineType === 'hvdc'" class="text-nowrap">HVDC - <span class="font-mono bg-stone-100">{{ lineKey }}</span></div>
                     <div v-if="overloaded" class="text-red-700 font-bold">Overloaded !</div>
-                    <div class="text-nowrap">Flow: <span class="font-bold">{{ absFlow ?? '-' }}</span> /{{ capacity }} MW</div>
-                    <div class="text-nowrap">Loading: <span class="font-bold">{{ absLoading ?? '-' }}</span> %</div>
-                    <div class="text-nowrap">Reactance: {{ reactance }} p.u</div>
+                    <div class="text-nowrap">Flow: <span class="font-bold">{{ absFlow ?? '-' }}</span> <span v-if="capacity">/{{ capacity }}</span> MW</div>
+                    <div v-if="lineType !== 'hvdc'" class="text-nowrap">Loading: <span class="font-bold">{{ absLoading ?? '-' }}</span> %</div>
+                    <div v-if="reactance" class="text-nowrap">Reactance: {{ reactance }} p.u</div>
+
+                    <div v-if="lineType === 'hvdc'" class="text-nowrap flex flex-col" @mousedown.stop>
+                        <div class="flex flex-row items-center gap-2">
+                            {{ hvdcFlowMin }}
+                            <input class="cursor-pointer w-30" type="range" :min="hvdcFlowMin" :max="hvdcFlowMax" step="10" v-model="hvdcSetFlow"/>
+                            {{ hvdcFlowMax }} MW
+                        </div>
+                    </div>
+
                 </div>
             </div>
 
             <div v-if="absLoadingShort" class="line-loading items-center justify-center h-full">
                 <div class="bg-white py-0.5 px-1 border text-md rounded-full ui-shadow">
                     <div class="text-nowrap"><span class="font-bold">{{ absLoadingShort ?? '-' }}</span> %</div>
+                </div>
+            </div>
+
+            <div v-if="lineType === 'hvdc'" class="line-loading items-center justify-center h-full">
+                <div class="bg-white py-0.5 px-1 border text-md rounded-full ui-shadow">
+                    <div class="text-nowrap"><span class="font-bold">{{ hvdcSetFlow ?? '-' }}</span> MW</div>
                 </div>
             </div>
 

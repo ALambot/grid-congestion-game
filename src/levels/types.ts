@@ -9,7 +9,7 @@ export interface Level {
 export interface InstantiatedLevel {
     inputGridConfig: InputGridConfig
     computedGrid: ComputedRef<InputGridConfig|undefined>
-    gridBalance: ComputedRef<number>
+    gridBalance: Ref<boolean>
     solvedGrid: ComputedRef<{[key: string]: GridLineWithResult}|undefined>
     submitGridAction: (action: GridAction) => void
     additionalGridActions: Ref<GridAction[]>
@@ -23,6 +23,7 @@ export function createLevel(inputGridConfig: InputGridConfig): InstantiatedLevel
 
         const newConfig = {...inputGridConfig}
 
+        // Actions handling
         const allActions = newConfig.actions.concat(additionalGridActions.value)
 
         allActions.forEach((action: GridAction) => {
@@ -47,19 +48,41 @@ export function createLevel(inputGridConfig: InputGridConfig): InstantiatedLevel
 
             // Bus reassignment
             if (action.kind == "buschange") {
+                // On regular lines
                 newConfig.lines.regular = newConfig.lines.regular.map((line) => {
                     if (action.lineKey === line.key) {
-
                         if (action.substationKey === line.nodeFromKey) {
                             return {...line, busFrom: action.bus}
                         }
-
                         if (action.substationKey === line.nodeToKey) {
                             return {...line, busTo: action.bus}
                         }
-
                     }
                     return line
+                })
+
+                // On HVDC lines
+                newConfig.lines.hvdc = newConfig.lines.hvdc?.map((line) => {
+                    if (action.lineKey === line.key) {
+                        if (action.substationKey === line.nodeFromKey) {
+                            return {...line, busFrom: action.bus}
+                        }
+                        if (action.substationKey === line.nodeToKey) {
+                            return {...line, busTo: action.bus}
+                        }
+                    }
+                    return line
+                })
+            }
+
+            // HVDC Flow change
+            if (action.kind == "hvdc") {
+
+                newConfig.lines.hvdc = newConfig.lines.hvdc?.map((hvdc) => {
+                    if (action.hvdcKey === hvdc.key) {
+                        return {...hvdc, setFlow: action.flow}
+                    }
+                    return hvdc
                 })
             }
         })
@@ -67,25 +90,15 @@ export function createLevel(inputGridConfig: InputGridConfig): InstantiatedLevel
         return newConfig
     })
     
-    // Total generation - load
-    const gridBalance: ComputedRef<number> = computed(() => {
-        
-        let sum = 0
-        
-        computedGrid.value?.nodes.generators.forEach((node) => {
-            sum += node.generation
-        })
+    // Grid or part of grid balanced or not ?
+    const gridBalance: Ref<boolean> = ref(false)
 
-        computedGrid.value?.nodes.loads.forEach((node) => {
-            sum -= node.load
-        })
-
-        return sum
-    })
-
+    // Simulation results
     const solvedGrid: ComputedRef<{[key: string]: GridLineWithResult}|undefined> = computed(() => {
         if(!computedGrid.value) return undefined
-      return runSimulations(computedGrid.value)
+        const { results, unbalanced } = runSimulations(computedGrid.value)
+        gridBalance.value = unbalanced
+        return results
     })
 
     function submitGridAction(action: GridAction) {
@@ -119,6 +132,22 @@ export function createLevel(inputGridConfig: InputGridConfig): InstantiatedLevel
                     && a.lineKey === action.lineKey
                 ) {
                     a.bus = action.bus
+                    found = true
+                }
+            })
+
+            if (found) return
+
+            additionalGridActions.value.push(action)
+        }
+
+        if (action.kind === "hvdc") {
+
+            let found = false
+
+            additionalGridActions.value.forEach((a) => {
+                if (!found && a.kind === "hvdc" && a.hvdcKey === action.hvdcKey) {
+                    a.flow = action.flow
                     found = true
                 }
             })

@@ -38,7 +38,7 @@ export interface SolverGridNode extends GridNode {
 }
 
 // Lines
-interface BaseGridLineInput {
+export interface BaseGridLineInput {
     key: string
     name?: string
     
@@ -87,7 +87,7 @@ export interface GridLineWithResult extends SolverGridLine {
 // Actions 
 
 export interface BaseGridAction {
-    kind: "redispatch" | "buschange"
+    kind: "redispatch" | "buschange" | "hvdc"
 }
 
 export interface RedispatchAction extends BaseGridAction {
@@ -103,7 +103,13 @@ export interface BusChangeAction extends BaseGridAction {
     bus: number
 }
 
-export type GridAction = RedispatchAction | BusChangeAction
+export interface HVDCAction extends BaseGridAction {
+    kind: "hvdc"
+    hvdcKey: string
+    flow: number
+}
+
+export type GridAction = RedispatchAction | BusChangeAction | HVDCAction
 
 
 // Errors
@@ -129,9 +135,9 @@ export interface InputGridConfig {
     lines: {
         regular: RegularGridLineInput[]
         pst: PSTGridLineInput[]
-        //hvdc: HVDCGridLineInput[] // TODO when we can handle islands
+        hvdc?: HVDCGridLineInput[]
     }
-    actions: GridAction[] //TODO
+    actions: GridAction[]
 }
 
 export interface SolverGridConfig {

@@ -84,18 +84,22 @@ export function splitSubGrids(grid: SolverGridConfig): SolverGridConfig[] {
 }
 
 /** Prepare the grid, split into subgrids if needed, run a simulation for each, collect results*/
-export function runSimulations(inputGridConfig: InputGridConfig): { [key: string]: GridLineWithResult } | undefined {
+export function runSimulations(inputGridConfig: InputGridConfig): { 
+    results: { [key: string]: GridLineWithResult } | undefined
+    unbalanced: boolean 
+}{
     
     // Prepare
     const solverGridConfig: SolverGridConfig = prepareGrid(inputGridConfig)
     
     let results: { [key: string]: GridLineWithResult } = {}
+    let unbalanced: boolean = false
     
     // Split
     splitSubGrids(solverGridConfig).forEach((solverGrid: SolverGridConfig) => {
         
         // Run simulation
-        const partialResults = runSimulation(solverGrid)
+        const { results: partialResults, unbalanced: subUnbalanced } = runSimulation(solverGrid)
         
         // Collect results
         if (partialResults !== undefined) {
@@ -104,14 +108,19 @@ export function runSimulations(inputGridConfig: InputGridConfig): { [key: string
                 ...partialResults
             }
         }
+
+        // Unbalanced marker
+        unbalanced = unbalanced || subUnbalanced
     })
 
-    return results
-
+    return { results: results, unbalanced: unbalanced }
 }
 
 /** Semi vibe-coded, especially the maths */
-export function runSimulation(solverGridConfig: SolverGridConfig): { [key: string]: GridLineWithResult } | undefined {
+export function runSimulation(solverGridConfig: SolverGridConfig): { 
+    results: { [key: string]: GridLineWithResult } | undefined
+    unbalanced: boolean 
+}{
 
     const sBase = 100 // MVA
     const slackIndex = 0
@@ -122,7 +131,7 @@ export function runSimulation(solverGridConfig: SolverGridConfig): { [key: strin
     const netPower = nodesMW.reduce((acc, cur) => acc += cur, 0)
     if ( netPower !== 0 ){
         console.warn(`Grid is not balanced, net power is ${netPower} MW`)
-        return undefined
+        return { results: undefined, unbalanced: true}
     }
     const nodesMWBalanced = nodesMW
 
@@ -183,7 +192,7 @@ export function runSimulation(solverGridConfig: SolverGridConfig): { [key: strin
     }
     catch (e) { 
         console.error('Solver error: ' + (e as Error).message); 
-        return undefined
+        return { results: undefined, unbalanced: false}
     }
 
     // Reconstruct full angle vector (radians). Slack angle = 0 by definition.
@@ -230,7 +239,7 @@ export function runSimulation(solverGridConfig: SolverGridConfig): { [key: strin
     const mappedFlows: { [key: string]: GridLineWithResult } = {}
     flows.forEach((flow: GridLineWithResult) => { mappedFlows[flow.key] = flow})
 
-    return mappedFlows
+    return { results: mappedFlows, unbalanced: false}
 }
 
 /** Vibe-coded */

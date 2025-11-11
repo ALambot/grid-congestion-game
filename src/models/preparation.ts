@@ -1,32 +1,4 @@
-import type { GeneratorGridNodeInput, GridAction, GridError, InputGridConfig, LoadGridNodeInput, PSTGridLineInput, RegularGridLineInput, SolverGridConfig, SolverGridLine, SolverGridNode, SubstationGridNodeInput } from "./types";
-
-export function applyActions(inputConfig: InputGridConfig): InputGridConfig | GridError {
-    
-    const newConfig = {...inputConfig}
-    
-    inputConfig.actions.forEach((action: GridAction) => {
-        
-        if (action.kind == "redispatch") {
-            
-            newConfig.nodes.generators = inputConfig.nodes.generators.map((node) => {
-                if (action.nodeKey === node.key) {
-                    return {...node, generation: action.power}
-                }
-                return node
-            })
-
-            newConfig.nodes.loads = inputConfig.nodes.loads.map((node) => {
-                if (action.nodeKey === node.key) {
-                    return {...node, load: action.power}
-                }
-                return node
-            })
-        }
-        
-    
-    })
-    return newConfig
-} 
+import type { GeneratorGridNodeInput, HVDCGridLineInput, InputGridConfig, LoadGridNodeInput, PSTGridLineInput, RegularGridLineInput, SolverGridConfig, SolverGridLine, SolverGridNode, SubstationGridNodeInput } from "./types";
 
 export function prepareGrid(inputConfig: InputGridConfig): SolverGridConfig {
     
@@ -84,6 +56,63 @@ export function prepareGrid(inputConfig: InputGridConfig): SolverGridConfig {
         powerNodesLookup[fullKey] = id
     })
 
+    // HVDC unwrapping
+    // We create a ghost node and a ghost line at each extremity of the HVDC line
+    const hvdcGhostLines: RegularGridLineInput[] = []
+    inputConfig.lines.hvdc?.forEach((hvdc: HVDCGridLineInput) => {
+        
+        connectedBuses.add(nodeFullKey(hvdc.nodeFromKey, hvdc.busFrom))
+        connectedBuses.add(nodeFullKey(hvdc.nodeToKey, hvdc.busTo))
+
+        const reverse = hvdc.setFlow < 0
+
+        const key_node_in = hvdc.key+"_node_in"
+        const key_node_out = hvdc.key+"_node_out"
+        const key_line_in = hvdc.key+"_line_in"
+        const key_line_out = hvdc.key+"_line_out"
+
+        solverNodes.push({
+            id: solverNodes.length,
+            key: key_node_in,
+            fullKey: key_node_in,
+            power: -hvdc.setFlow,
+            kind: !reverse ? "load" : "generator",
+            x: 0, // Don't care
+            y: 0 // Don't care
+        })
+
+        hvdcGhostLines.push({
+            reactance: 1,
+            limit: 1000000,
+            key: key_line_in,
+            nodeFromKey: hvdc.nodeFromKey,
+            busFrom: hvdc.busFrom,
+            nodeToKey: key_node_in,
+            busTo: 0
+        })
+
+        solverNodes.push({
+            id: solverNodes.length,
+            key: key_node_out,
+            fullKey: key_node_out,
+            power: hvdc.setFlow,
+            kind: !reverse ? "generator" : "load",
+            x: 0, // Don't care
+            y: 0 // Don't care
+        })
+
+        hvdcGhostLines.push({
+            reactance: 1,
+            limit: 1000000,
+            key: key_line_out,
+            nodeFromKey: key_node_out,
+            busFrom: 0,
+            nodeToKey: hvdc.nodeToKey,
+            busTo: hvdc.busTo,
+        })
+
+    })
+
     // Split substation nodes with buses
     inputConfig.nodes.substations.forEach((node: SubstationGridNodeInput) => {
         
@@ -102,7 +131,7 @@ export function prepareGrid(inputConfig: InputGridConfig): SolverGridConfig {
 
     // Adapt lines
     const solverLines: SolverGridLine[] = []
-    allInputLines.forEach((line: RegularGridLineInput | PSTGridLineInput) =>{
+    allInputLines.concat(hvdcGhostLines).forEach((line: RegularGridLineInput | PSTGridLineInput) =>{
 
         // Sanity checks
         const nodesFrom = solverNodes.filter((node) => node.fullKey === nodeFullKey(line.nodeFromKey, line.busFrom))

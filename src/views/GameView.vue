@@ -88,7 +88,7 @@ onMounted(() => {
                         </div>
 
                         <div v-if="level?.gridBalance.value" class="shrink w-full h-fit p-2 rounded-xl disclaimer-unbalanced flex items-center justify-center">
-                            GRID OUT-OF-BALANCE {{ level.gridBalance.value > 0 ? "+" : "" }} {{ level.gridBalance.value }} MW
+                            GRID OUT-OF-BALANCE
                         </div>
 
                         </div>
@@ -154,6 +154,23 @@ onMounted(() => {
                     :flow="level.solvedGrid.value?.[line.key]?.flow_MW"
                     :reactance="line.reactance"
                     :ui-scale="uiScale"
+                    :level="level"
+                />
+
+                <!-- HVDC Lines -->
+                <MapLine
+                    v-for="line, index in level.computedGrid.value.lines.hvdc" :key="index"
+                    line-type="hvdc"
+                    :line-key="line.key"
+                    :start-x="nodeLookup[line.nodeFromKey].x"
+                    :start-y="nodeLookup[line.nodeFromKey].y"
+                    :end-x="nodeLookup[line.nodeToKey].x"
+                    :end-y="nodeLookup[line.nodeToKey].y"
+                    :flow="line.setFlow"
+                    :ui-scale="uiScale"
+                    :hvdc-flow-min="line.flowMin"
+                    :hvdc-flow-max="line.flowMax"
+                    :level="level"
                 />
 
             </div>
@@ -233,13 +250,12 @@ pre {
 }
 
 .disclaimer-unbalanced {
-    background: repeating-linear-gradient(45deg, hsla(0, 100%, 50%, 0.5) 0px, hsla(0, 100%, 50%, 0.5) 20px,  #ffffff00 20px, #ffffff00 40px);
+    background: repeating-linear-gradient(45deg, hsla(0, 100%, 50%, 0.3) 0px, hsla(0, 100%, 50%, 0.3) 20px,  #ffffff00 20px, #ffffff00 40px);
     border: 2px hsla(0, 100%, 50%) solid;
     color: white;
-    font-weight: 900;
-    font-size: 1.5rem;
-    -webkit-text-stroke: 1px black;
-    text-shadow: 0 0 10px white, 0 0 2px black, 0 0 2px black, 0 0 2px black;
+    font-weight: 700;
+    font-size: 1.2rem;
+    text-shadow: 0 0 1px black, 0 0 2px black, 0 0 3px black, 0 0 4px black;
     box-shadow: inset 0px 0px 10px 0px hsla(0, 0%, 0%, 0.5);
 }
 

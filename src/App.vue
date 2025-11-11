@@ -60,6 +60,11 @@ function capitalize(word: string) {
           </svg>
         
         </div>
+
+        <span class="text-black bg-red-100 p-1 rounded flex flex-col items-center">
+          <span>This is a work in progress</span>
+          <span>It's not playable as-is</span>
+        </span>
         
         <span class="text-white">A small "game" about solving energy grid congestions</span>
 

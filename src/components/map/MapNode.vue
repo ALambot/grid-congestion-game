@@ -2,7 +2,7 @@
 import type { InstantiatedLevel } from '@/levels/types';
 import { computed, ref, watch, type Ref } from 'vue';
 import BusBars, { type BusBarsLineProps, type BusBarsProps } from '@/components/map/BusBars.vue';
-import type { BaseGridNodeInput, RegularGridLineInput, SubstationGridNodeInput } from '@/models/types';
+import type { BaseGridLineInput, BaseGridNodeInput, SubstationGridNodeInput } from '@/models/types';
 
 
 export interface MapNodeProps {
@@ -83,15 +83,28 @@ const busBarProps: Ref<BusBarsProps|undefined> = computed(() => {
 
 
     // Getting the lines TODO optimize
-    const slines = level.computedGrid.value?.lines.regular
-    .filter((rline: RegularGridLineInput ) => rline.nodeFromKey === nodeKey || rline.nodeToKey === nodeKey)
-    .map((rline: RegularGridLineInput) => {
+    const regularLines: BaseGridLineInput[] = level.computedGrid.value?.lines.regular ?? []
+    const hvdcLines: BaseGridLineInput[] = level.computedGrid.value?.lines.hvdc ?? []
+    const allLines: BaseGridLineInput[] = hvdcLines.concat(regularLines)
+    
+
+    console.log(nodeKey)
+    console.log(level.solvedGrid.value)
+
+    const slines = allLines
+    .filter((rline: BaseGridLineInput ) => rline.nodeFromKey === nodeKey || rline.nodeToKey === nodeKey)
+    .map((rline: BaseGridLineInput) => {
+
+        console.log(nodeKey, rline.key, rline.nodeFromKey, rline.nodeToKey)
         
         // Is our substation the node "from" or "to" defined on this line ?
         const mode = rline.nodeFromKey === nodeKey ? "from" : "to"
 
+        // HVDC case...
+        const hvdcSuffix = mode === "from" ? "_line_in" : "_line_out"
+
         // Simulation results if available
-        const results = level.solvedGrid.value?.[rline.key]
+        const results = level.solvedGrid.value?.[rline.key] ?? (level.solvedGrid.value?.[rline.key+hvdcSuffix])
         const flow = Number(results?.flow_MW?.toFixed(0))
         
         const bblp: BusBarsLineProps = {
