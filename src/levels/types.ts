@@ -4,6 +4,11 @@ import { computed, ref, type ComputedRef, type Ref } from "vue"
 
 export interface Level {
     gridConfig: InputGridConfig
+    canvasWidth?: number
+    canvasHeight?: number
+    startingZoom?: number
+    minScale?: number,
+    maxScale?: number,
 }
 
 export interface InstantiatedLevel {

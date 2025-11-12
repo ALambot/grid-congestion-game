@@ -7,7 +7,7 @@ const router = createRouter({
   routes: [
     {
       path: '/',
-      redirect: { name: 'level', params: { section: 'tutorial', levelId: 'test' } }
+      redirect: { name: 'level', params: { section: 'tutorial', levelId: 'test5' } }
     },
     {
       path: '/level/:section/:levelId',
